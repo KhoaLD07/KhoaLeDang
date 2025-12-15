@@ -9,18 +9,18 @@
      <h1 style="text-align: left; "><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
      <h1 style="text-align: center;">PE HEADER</h1>
      <h1 style="font-size: 20;">TOOL USED: CFF_EXPLORER; APP USED: notepad.exe</h1>
-     <p>Hi, this is my first blog and today we will talk about PE format. PE (PORTABLE EXECUTABLE) is a format that provides information about a file for the WindowsKernal. Then WindowsKernal will use that information to load the file on the RAM, the information include: size of the code, offset of each sections, Entry point of the program, ...</p>
-     <img src="/IMAGES/PE/PE_DOS_HEADER.png" alt="PE_DOS_HEADER">
-     <p>First part of the PE format is DOS HEADER. Its purpose is to act as a standard identifier, containing the "MZ" signature that marks the file as an executable. The most important field is e_lfanew, which is the offset to the NT header. It also serves the purpose of backward compatibility with the old DOS file format (when the program is loaded in MS-DOS, the default error message is “This program cannot be run in DOS mode.”).   </p>
+     <p>Hi, this is my first blog and today we will talk about PE format. PE (PORTABLE EXECUTABLE) is a file format that provides information about a file for the WindowsKernal. Then WindowsKernal will use that information to load the file on the RAM, the information include: size of the code, offset of each sections, Entry point of the program, ...</p>
+     <img src="IMAGES/PE/PE_DOS_HEADER.png" alt="PE_DOS_HEADER">
+     <p>First part of the PE format is DOS HEADER. Its main purpose is to act as a standard identifier. Containing the "MZ" signature that marks the file as an executable. The most important field is e_lfanew, which is the offset to the NT header. It also serves the purpose of backward compatibility with the old DOS file format (when the program is loaded in MS-DOS, the default error message is “This program cannot be run in DOS mode.”).   </p>
      <p>The second part is NT_HEADER. NT_HEADER got three smaller section (signature, File header, optional header).
         <img src="IMAGES/PE/PE_NT_HEADER1.png" alt="signature">
-        <p style="font-size: 20;">SIGNATURE: Its purpose is to confirm that the format behind it is a valid PE format</p>
+        <p style="font-size: 20;">SIGNATURE: The role of this section is to confirm that the format behind it is a valid PE format</p>
         <img src="IMAGES/PE/PE_NT_HEADER2.png" alt="FileHeader">
         <p style="font-size: 20;">FileHeader: 
             <ul>
-                <li>1. Machine: Is the OS 32b it or 64 bit.</li>
+                <li>1. Machine: Is the OS 32 bit or 64 bit.</li>
                 <li>2. NumberOfSections: Numbers of Sections in the SectionHeader.</li>
-                <li>3. TimeDateStamp: The day the file got created.</li>
+                <li>3. TimeDateStamp: The day the file got compiled.</li>
                 <li>4. PointerToSymbolTable: offset to Symbol usually used for .obj file(value = 0 for .exe and dll)</li>
                 <li>5. SizeOfOptionalHeader: Size of Optional Header is used when we have the base offset of the optionalHeader. Then we plus it with the sizeofOptionalHeader to know where it ends.</li>
                 <li>6. Characteristics: Let Windows Kernal knows that this file is a .exe or .dll</li>
@@ -33,7 +33,7 @@
             <li>2. AddressOfEntryPoint: the address of the first function which will be executed. This is where the file begin to run</li>
             <li>3. ImageBase: is the base address of the file. It serves as the reference address when the file is loaded into memory and is used to determine where sections are located in virtual memory. When the file is loaded into RAM, it is assigned a virtual address. To obtain the Relative Virtual Address (RVA) of a section, we calculate: VirtualAddress - ImageBase </li>
             <img src="IMAGES/PE/PE_NT_HEADER4.png" alt="FileAlignment">
-            <li>4. FileAlignment, SectionAlignment: Their purpose is to round up the Virtual Address and Virtual Size so its easier for WindowsKernal to read. For Example: a section has Virtual size of 0x2448F, Virtual Address: 0x912; when the value of the File Alignment is 0x200 and SectionAlignment is 0x1000; After align it will become: virtual address: 0x1000; raw size (virtual size after align): 0x24600; And then the next section .rdata will start at 0x26000</li>
+            <li>4. FileAlignment, SectionAlignment: Their objective is to round up the Virtual Address and Virtual Size so its easier for WindowsKernal to read. For Example: a section has Virtual size of 0x2448F, Virtual Address: 0x912; when the value of the File Alignment is 0x200 and SectionAlignment is 0x1000; After align it will become: virtual address: 0x1000; raw size (virtual size after align): 0x24600; And then the next section .rdata will start at 0x26000</li>
             <li>5. SizeOfImage: Total size of all the File when it got loaded on RAM.</li>
             <li>6. SizeOfHeader: Total size of DOS HEADER, NT HEADER, SECTION TABLE got rounded up by FileAlignment</li>
             <li>7. DataDirectories: Data Directories are a table in the OptionalHeader that describes where important data structures of the PE file are located in memory
@@ -50,9 +50,20 @@ Data Directories tell the Windows loader where and how large key PE structures a
 <li>TLS Table: thread local storage</li>
 <li>IAT (Import Address Table): resolved import addresses</li>
 </ul>
-            </li>
+<p>Inside of each IMAGE_DATA_DIRECTORIES is its virtual address and size</p>
+<img src="IMAGES/PE/PE_SECTIONHEADER1.png" alt="Section Header">
+<li>The last part is SectionHeader it contains a lot of detailed information about the file.
+</li>
+<ul>
+    <li>1. Name: Section's name.</li>
+    <li>2. VirtualSize: Size will be loaded on RAM. (it's not been aligned)</li>
+    <li>3. VirtualAddress (RVA): Relative Address of section. </li>
+    <li>... (Most of them are self explanatory)</li>
+    <li>Most important Section: .text because it contains the code.</li>
+</ul>
 
         </ul>
+    -> Thats all for today see you in the next Blog.
     </p>
 </body>
 </html>
