@@ -1,6 +1,13 @@
 body {
+    color: white;
     background-color: black;
 }
-p {
-    color: white;
+p{
+    font-size: 25;
+}
+li{
+    font-size: 22;
+}
+img {
+    margin: 10;
 }
