@@ -22,7 +22,7 @@
                 <li>2. NumberOfSections: Numbers of Sections in the SectionHeader.</li>
                 <li>3. TimeDateStamp: The day the file got compiled.</li>
                 <li>4. PointerToSymbolTable: offset to Symbol usually used for .obj file(value = 0 for .exe and dll)</li>
-                <li>5. SizeOfOptionalHeader: Size of Optional Header is used when we have the base offset of the optionalHeader. Then we plus it with the sizeofOptionalHeader to know where it ends.</li>
+                <li>5. SizeOfOptionalHeader: Size of Optional Header is used to access the Section Header by adding e_lfanew and 4 (Signature) + 20(FileHeader) + sizeOfOptionalHeader.</li>
                 <li>6. Characteristics: Let Windows Kernal knows that this file is a .exe or .dll</li>
             </ul>
         </p>
