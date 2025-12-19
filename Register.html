@@ -1,0 +1,35 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 style="text-align: left; "><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
+    <h1 style="text-align: center;">Register</h1>
+    <p>First of all, we need understand about Registers. Registers are located in the CPU, this is the fastest data storage inside a computer used by CPU to 
+performs calculation almost immediately.</p>
+    <p>The Table below is the list of common registers in x64 architecture (Windows) you may encounter in assembly.</p>
+<table border="1" style="font-size: 25;">
+<thead>
+<tr><th style="font-size: 20;">Name (64 bit)</th><th>Full Name</th><th>Main Purpose</th><th>Calling Convention</th></tr>
+</thead>
+<tbody>
+<tr><td>RAX</td><td>Accumulator</td><td>Math operation (+, -, *, /)</td><td>Hold function's returned value.</td></tr>
+<tr><td>RCX </td><td>Counter</td><td>Count variable for loops, and bit shifting.</td><td>1st Arguments in function.</td></tr>
+<tr><td>RDX</td><td>Data</td><td>LargeMath (*,/) 128 bit</td><td>2nd Arguments in function.</td></tr>
+<tr><td>R8</td><td>Register 8</td><td>It can do the math similar to RAX,RCX. Can be used while RAX,... are busy. </td><td>3rd Arguments in function.</td></tr>
+<tr><td>R9</td><td>Register 9</td><td>Similar to R8</td><td>4th Arguments in function. The Stack Boundary, after R9 others storage will be push into STACK (RAM)(slower)</td></tr>
+<tr><td>RSI</td><td>Source Index</td><td>Pointer to String/Array</td><td>Callee-saved(*)</td></tr>
+<tr><td>RDI</td><td>Destination Index</td><td>Pointer to where RSI should be placed in</td><td>Callee-saved</td></tr>
+<tr><td>RBX</td><td>Base</td><td>It is used as a base memory address pointer.</td><td>Callee-saved</td></tr>
+<tr><td>RSP</td><td>Stack Pointer</td><td>Points to the top of the stack. Last In - First Out (LIFO).</td><td>Callee-saved</td></tr>
+<tr><td>RBP</td><td>Base Pointer</td><td>Points to the bottom of the stack (Usually push rbp, mov RBP, RSP when enter a function, and then sub RSP, [StackSize] to allocate space for the function)</td><td>Callee-saved</td><td></td></tr>
+<tr><td>RIP</td><td>Instruction Pointer</td><td>Store the Address of the next instruction to executed</td></tr>
+</tbody>
+</table>
+<p>(*):Callee-saved: (The function must preserve the value of this register; it should remain unchanged after the function returns)<br>
+(1):The different between RBX and RSI is when you want to access to an element inside. RSI (use lodsq) will change but RBX will remain the same there.					</p>
+</body>
+</html>
