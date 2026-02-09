@@ -1,0 +1,119 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Registry Overview</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 style="text-align: left;"><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
+    <h1 style="text-align: center;">WINDOWS REGISTRY</h1>
+    <h1 style="font-size: 20;">TOPIC: BOOT PROCESS, LSASS AND REGISTRY HIVES</h1>
+
+    <p>In this blog we will walk through how Windows boots, how the kernel and LSASS work together, and then break down the most important Registry hives such as <code>HKEY_CURRENT_USER</code>, <code>HKEY_LOCAL_MACHINE</code>, and others.</p>
+
+    <h2>1. Boot Process &amp; Kernel Startup</h2>
+    <p>When the power button is pressed, POST inside the "body" (before the "brain" is needed) checks to see if the limbs, heart, and lungs are functioning stably.</p>
+    <p>Then it wakes up <code>bootmgr</code>. <code>winload.exe</code> is called by <code>bootmgr</code> to load <code>C:\Windows\System32\config\SYSTEM</code> into RAM. <code>bootmgr</code> has the BCD, so it knows where the Kernel lies to wake it up (load it into RAM).</p>
+    <p>At this point, the Kernel takes control of the machine. The Kernel (the brain) knows it is alive but doesn't know how to use its limbs (mouse, keyboard). The "book" contains information about where the heart, lungs, and limbs (drivers) are located and how to use them.</p>
+
+    <h2>2. Sessions, Winlogon and LSASS</h2>
+    <p>Session 0 Isolation and <code>CSRSS</code>, <code>SMSS.EXE</code> (Session Manager System) is the first process in UserMode. It is woken up by the Kernel to create Session 0, which is reserved for system services and Kernel Drivers where UI interaction is not allowed.</p>
+    <p>After that, it creates Session 1 to run <code>winlogon</code>, then <code>winlogon</code> runs <code>lsass.exe</code>: it reads <code>SAM</code>/<code>SOFTWARE</code> to log in and run other software.</p>
+    <img src="IMAGES/Windows Registry/HKEY_CURRENT_USER.png" alt="HKEY_CURRENT_USER">
+    <h2>3. HKEY_CURRENT_USER</h2>
+    <p><strong>App Event</strong>: Labels, Schemes. Labels are tags to find things easily, Schemes are paths to sound files. App Event has the effect of emitting a sound when an event occurs. <code>.Current</code> is being used, <code>.Default</code> is what it will reset to when clicking "reset to default".</p>
+    <p><strong>Console</strong>: Can customize consoles inside Windows, e.g., CMD, PowerShell.</p>
+    <p><strong>EUDC (End-User Defined Characters)</strong>: Characters designed by the user.</p>
+    <p><strong>Keyboard Layout</strong>: Customize the keyboard language. You can lock keys or change one key to another using the Scancode Map located in <code>HKEY_LOCAL_MACHINE</code>.</p>
+
+    <h3>Scancode Map structure</h3>
+    <ul>
+        <li>Part 1 (Header): 8 BYTES (fixed).</li>
+        <li>Part 2 (Counter): Number of keys modified + 1 (e.g., <code>02,00,00,00</code> → modify 1 key).</li>
+        <li>Part 3 (Mapping): 4 BYTES for each key (NEW KEY, OLD KEY) (e.g., <code>00,00, 5b,e0</code> → New = Null, Old = Win).</li>
+        <li>Part 4 (End): <code>00,00,00,00</code> (end).</li>
+    </ul>
+
+    <p><strong>Network</strong>: Stores information about network drives. Turns network folders into drives, for example: <code>\\vmware-host\Shared Folders</code>. We can create a virtual drive (Z:) from this path.</p>
+    <p><strong>Printer</strong>: <code>Connection</code> is the key containing the list of printers in the network that have been added. <code>DevModePerUser</code> is the user's private configuration for each printer. For example, User A chooses portrait printing, while User B chooses landscape as default.</p>
+    <p><strong>SOFTWARE</strong>: Stores user-specific configurations in applications (e.g., A uses Chrome dark mode, B uses Chrome light mode). Some important info includes auto-login of applications (username, language, etc.).</p>
+    <p><strong>POLICIES</strong>: <code>Software\Microsoft\Windows\CurrentVersion\Policies</code>. Admin or malware can adjust this to ban Task Manager or prevent <code>.exe</code> files from running.</p>
+    <p><strong>CLASSES</strong>: <code>Software\Classes</code>. Specifies whether <code>.html</code> is opened by Chrome or Edge.</p>
+    <p><strong>RUN</strong>: Important autorun location. <code>Run</code> in <code>Microsoft\Windows\CurrentVersion\Run</code> can add programs to automatically startup. Example: <code>msword.exe C:\danger.doc</code> to auto-run when the machine just turns on. This method is not silent and is easily blocked by Office. Often used to run DLL files. Example value: <code>rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump ...</code> to auto-run a DLL.</p>
+    <p><strong>Microsoft\Windows\CurrentVersion\Uninstall</strong>: Contains paths to uninstall installed software. Mostly located in HKLM, a few will be in HKCU.</p>
+    <p><strong>UserInit</strong>: Runs before <code>explorer.exe</code> to load the user profile. You can insert a program name after the comma to start it up with the system legally.</p>
+    <p><strong>Volatile Environment</strong>: Stores temporary information. Computer name: <code>USERNAME</code>, authenticated logon server name: <code>LOGONSERVER</code>, paths to <code>APPDATA</code>, <code>USERPROFILE</code> folders. Instead of typing <code>whoami</code> in CMD (which is easily detected), reading info in Volatile Environment is safer.</p>
+    <img src="IMAGES/Windows Registry/HKEY_LOCAL_MACHINE.png" alt="HKEY_LOCAL_MACHINE">
+    <h2>4. HKEY_LOCAL_MACHINE</h2>
+    <p><strong>This is a bit tough Hives so we will dig deep into it</strong></p>
+    <p><strong>BCD00000000 (Boot Configuration Data)</strong>: Contains boot configuration for Windows Recovery, Windows Resume Application, Windows Boot Manager. Lets <code>bootmgr</code> know which hard drive Windows is on, the path, and the description name. These keys are not located in the <code>C:\</code> drive, so if you format C:, these keys still remain intact.</p>
+    <p><strong>HARDWARE</strong>: Contains information about the computer CPU, BIOS, etc. You can check if this is a virtual machine or real machine; if you see "VMware" or similar, then it's a VM. Also check the number of cores; if it's weak, it might be a VM. This is a volatile key, only existing in RAM; it gets rewritten every time the machine is turned on.</p>
+    <p><strong>SAM (Security Account Manager)</strong>: Information of all local accounts on the computer. Stores username, group, and password (already hashed). You can copy SAM and SYSTEM files or use a tool to read data in the RAM of <code>lsass.exe</code>.</p>
+
+    <h3>SECURITY hive</h3>
+    <ul>
+        <li>Stores config in <code>secpol</code>.</li>
+        <li>Stores temporary passwords (Cached Credentials); when there is no company network, you can still log in, but if the company changes the password while the network is lost, you must enter the old password.</li>
+        <li><strong>LSA secrets</strong>: Stores data in encrypted form (different from SAM which is hashed). Automation requires the original password to send for authentication, so it must be encrypted and then decrypted by LSASS when needed.</li>
+    </ul>
+    <p>How it works: <code>lsass.exe</code> takes the Bootkey or Syskey stored in the SYSTEM branch to decrypt data in Secrets. Therefore, using a tool to read various passwords inside <code>lsass.exe</code> when it decrypts will reveal plaintext passwords.</p>
+
+    <h3>Getting SYSTEM privileges</h3>
+    <p>To view inside SECURITY or SAM, you need SYSTEM privileges via token impersonation:</p>
+    <ul>
+        <li>Every process in Windows needs a token to say "who am I" and "what can I do". Admin rights can have <code>SeDebugPrivilege</code> to debug a program, allowing intervention and viewing the memory of ANY running process, including the SYSTEM process.</li>
+        <li>Step 1: Check if <code>SeDebugPrivilege</code> is enabled. Checking by <code>whoami /priv</code> is dangerous because it spawns <code>whoami.exe</code> which can be detected by AV. A safer way is trying to open the key <code>HKEY_LOCAL_MACHINE\SOFTWARE</code> with write permission and see if it returns success, or use <code>net user</code>.</li>
+        <li>Step 2: Search for a process with SYSTEM privileges, such as <code>winlogon</code> or <code>lsass.exe</code>.</li>
+        <li>Step 3: Use debug rights to crawl into the <code>winlogon</code> process to copy the token and assign it to your own process <code>cmd.exe</code> or <code>Mimikatz.exe</code>. At this point, Windows sees <code>cmd.exe</code> having a SYSTEM token, so it opens the door to SAM, SECURITY, etc.</li>
+    </ul>
+
+    <h3>Other important HKLM keys</h3>
+    <p><strong>SOFTWARE</strong>: Similar to the current user side, but adjusting here applies to all users. If it is Policies, everyone is forced to follow; if it is a normal setting, Current User can override it.</p>
+    <p><strong>WOW6432Node</strong>: 32-bit applications do not see the original <code>HKLM\SOFTWARE</code> but are automatically redirected to <code>WOW6432Node</code>. If you don't check this key, you might miss a lot of malware.</p>
+    <p><strong>HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options</strong>: Reserved for debuggers. Attackers can create a <code>sethc.exe</code> key (triggered by pressing Shift 5 times) and point the value to <code>cmd.exe</code> with SYSTEM privileges.</p>
+
+    <h2>5. SYSTEM hive</h2>
+    <p><strong>Activation Broker</strong>: For new apps running in sandbox (Windows Store/UWP). Running this app has even fewer rights than a normal <code>.exe</code>.</p>
+    <p>Example: When opening Calculator on the start menu, Windows looks at <code>HKEY_CLASSES_ROOT</code> to find the class ID or app ID, checks what rights this app needs, then creates an AppContainer and runs Calculator so it cannot touch system files.</p>
+
+    <h3>Control Set &amp; Services</h3>
+    <p><strong>Control Set</strong>: Contains necessary configuration info for Windows to boot and operate. Includes drivers, services, system parameters.</p>
+    <p><strong>Control</strong>: Contains system configurations such as computer name, memory management, and time zone.</p>
+    <p><strong>Enum (Enumerator)</strong>: Every hardware device that has ever been plugged into the machine (USB, etc.).</p>
+    <p><strong>Hardware Profile</strong>: Contains configurations different from the original machine config (e.g., at home use 4K screen, at work use Full HD; docked vs. undocked profiles).</p>
+    <p><strong>Policies</strong>: Contains configurations directly affecting the kernel and services. Early boot policies work when the machine has just turned on and no one has logged in yet (e.g., banning copying data to USB from boot). ELAM (Early Launch Anti-Malware) lets AV drivers start before all other drivers.</p>
+
+    <h3>Services key</h3>
+    <ul>
+        <li><strong>Start</strong>: 0 = Boot (loaded by <code>winload.exe</code>), 1 = System (loaded by kernel), 2 = Automatic (services such as sound, Wi-Fi, Bluetooth), 3 = Manual, 4 = Disabled.</li>
+        <li><strong>Type</strong>: 1 = Kernel driver (<code>.sys</code>), 16/32 = Win32 services (<code>.exe</code>).</li>
+        <li><strong>ImagePath</strong>: Where the <code>.exe</code> or <code>.sys</code> file is located on the hard drive.</li>
+        <li><strong>DependOnService</strong>: Dependency relationships (e.g., Wi-Fi service depends on network config <code>Ndisuio</code>).</li>
+    </ul>
+
+    <p><strong>HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs</strong>: List of DLLs loaded from <code>system32</code>. Windows will ignore the normal search order for these files so malware cannot perform DLL hijacking on files in this list.</p>
+    <p><strong>Driver DataBase</strong>: Contains mappings between Hardware IDs and installation files (<code>.inf</code>). Includes signature, class, provider, supported hardware IDs, and where driver files are stored.</p>
+    <p><strong>Section [AddReg]</strong>: <code>HKR,,DevLoader,,*ntkern</code> is used during driver install to write into the Registry, causing new services to appear.</p>
+
+    <h3>More SYSTEM subkeys</h3>
+    <p><strong>HardwareConfig</strong>: Storage for hardware profiles; Hardware Profile is a projection of HardwareConfig.</p>
+    <p><strong>Input</strong>: About language and how key presses are converted into characters (e.g., Chinese, Japanese).</p>
+    <p><strong>Maps</strong>: Offline maps for Bing Maps.</p>
+    <p><strong>MountedDevices</strong>: Stores GUID of hard drives and maps them to <code>\DosDevices\[DriveLetter]</code> with the partition address as the value.</p>
+    <p><strong>Resource Manager</strong>: Minimizes reboots when installing software or updating Windows. Uses <code>rstrtmgr.dll</code> to pause applications using DLL/EXE files, update them, then resume.</p>
+    <p><strong>ResourcePolicyStore</strong>: The "traffic laws" of the CPU: specifies that games/apps run fast while updates/virus scans yield.</p>
+    <p><strong>RNG</strong>: Creates random number seeds. On shutdown, Windows saves the current random state to <code>Seed</code>. On startup, it reads this value to ensure crypto safety from the first second.</p>
+    <p><strong>Select</strong>: Indicates the current control set (e.g., 1, 2 corresponds to <code>ControlSet001</code>...). Has <code>Current</code>, <code>Default</code>, <code>LastKnownGood</code>, etc.</p>
+    <p><strong>Setup</strong>: Stores flags and environment variables so the kernel knows what stage it is in. When Windows is in setup mode (<code>SystemSetupInProgress = 1</code>), some services won't run to avoid conflicts.</p>
+    <p><strong>Software</strong>: Mostly contains configurations related to core components of the OS, security, and updates such as BitLocker and Windows Update.</p>
+    <p><strong>State</strong>: Has date/time to check if time is reliable, and whether NetworkTimeSync is on to allow HTTPS access.</p>
+    <p><strong>WaaS (Windows Update Medic Service)</strong>: Evaluates Windows Update health and remediation. Self-healing mechanism that can re-enable Windows Update.</p>
+    <p><strong>WPA (Windows Product Activation)</strong>: Stores hashed activation data (activation token). Combined with hardware to hash the token. Changing the mainboard can invalidate the license.</p>
+
+    <h2>6. HKEY_USERS</h2>
+    <p><code>HKEY_USERS</code> is the origin of <code>HKEY_CURRENT_USER</code>, which is just a shortcut pointing to the SID of the current user.</p>
+
+    <p>→ That’s all for this Registry overview. See you in the next blog.</p>
+</body>
+</html>
