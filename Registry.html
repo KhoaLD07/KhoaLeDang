@@ -13,10 +13,9 @@
     <p>In this blog we will walk through how Windows boots, how the kernel and LSASS work together, and then break down the most important Registry hives such as <code>HKEY_CURRENT_USER</code>, <code>HKEY_LOCAL_MACHINE</code>, and others.</p>
 
     <h2>1. Boot Process &amp; Kernel Startup</h2>
-    <p>When the power button is pressed, POST inside the "body" (before the "brain" is needed) checks to see if the limbs, heart, and lungs are functioning stably.</p>
-    <p>Then it wakes up <code>bootmgr</code>. <code>winload.exe</code> is called by <code>bootmgr</code> to load <code>C:\Windows\System32\config\SYSTEM</code> into RAM. <code>bootmgr</code> has the BCD, so it knows where the Kernel lies to wake it up (load it into RAM).</p>
-    <p>At this point, the Kernel takes control of the machine. The Kernel (the brain) knows it is alive but doesn't know how to use its limbs (mouse, keyboard). The "book" contains information about where the heart, lungs, and limbs (drivers) are located and how to use them.</p>
-
+    <p>When the power button is pressed, POST (Power On Self Test) inside the "body" (before the "brain" is needed) checks to see if the limbs, heart, and lungs are functioning stably.</p>
+    <p>Then it wakes up bootmgr. <code>winload.exe</code> is called by <code>bootmgr</code> to load <code>C:\Windows\System32\config\SYSTEM</code> into RAM. <code>bootmgr</code> has the BCD (Boots configuration data) is a file that contains information about the boot process, so it knows where the Kernel lies to wake it up (load it into RAM).</p>
+    <p>At this point, the Kernel takes control of the machine. The Kernel (the brain) knows it is alive but doesn't know how to use its limbs (mouse, keyboard). Drivers are the "book" contains information about where the heart, lungs, and limbs are located and how to use them.</p>
     <h2>2. Sessions, Winlogon and LSASS</h2>
     <p>Session 0 Isolation and <code>CSRSS</code>, <code>SMSS.EXE</code> (Session Manager System) is the first process in UserMode. It is woken up by the Kernel to create Session 0, which is reserved for system services and Kernel Drivers where UI interaction is not allowed.</p>
     <p>After that, it creates Session 1 to run <code>winlogon</code>, then <code>winlogon</code> runs <code>lsass.exe</code>: it reads <code>SAM</code>/<code>SOFTWARE</code> to log in and run other software.</p>
