@@ -114,6 +114,89 @@
     <h2>6. HKEY_USERS</h2>
     <p><code>HKEY_USERS</code> is the origin of <code>HKEY_CURRENT_USER</code>, which is just a shortcut pointing to the SID of the current user.</p>
 
-    <p>→ That’s all for this Registry overview. See you in the next blog.</p>
+
+    <h2>7. C Registry Code Example</h2>
+    <p>Here is the C code example used in this topic:</p>
+    <pre><code>#include &lt;Windows.h&gt;
+#include &lt;stdio.h&gt;
+void create_run_key() {
+	HKEY current_user = NULL;
+	LSTATUS open_key = NULL;
+	LSTATUS set_value = NULL;
+	const WCHAR* path = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+	const WCHAR* phoenix = L"C:\\Users\\xxx\\source\\repos\\Phoenix\\x64\\Debug\\Phoenix.exe";
+	open_key = RegOpenKey(HKEY_LOCAL_MACHINE, path, &current_user);
+	if (open_key == ERROR_SUCCESS) {
+		set_value = RegSetValueExW(current_user, L"Phoenix", 0, REG_SZ, (const BYTE*)phoenix, 57*2);
+		if (set_value == ERROR_SUCCESS)
+		{
+			printf("\nCREATED VALUE RUN SUCCESSFULLY!");
+			RegCloseKey(current_user);
+			return;
+		}
+	}
+	printf("\nFAILED TO OPEN KEY CURRENT_USER!	");
+	return;
+}
+void disable_taskmgr(DWORD data) {
+	HKEY system_key = NULL;
+	LSTATUS create_key = NULL;
+	LSTATUS set_value = NULL;
+	const WCHAR* path_64 = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
+	create_key = RegCreateKeyEx(HKEY_CURRENT_USER, path_64, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &system_key, NULL);
+	if (create_key == ERROR_SUCCESS) {
+		set_value = RegSetValueExW(system_key, L"DisableTaskMgr", 0, REG_DWORD, (const BYTE*)&data , sizeof(data));
+		if (set_value == ERROR_SUCCESS)
+		{
+			printf("\nTASK MANAGER %d!",data);
+			RegCloseKey(system_key);
+			return;
+		}
+	}
+	printf("\nFAILED TO CREATE KEY! %d",create_key);
+	return;
+}
+void change_cmd_color(DWORD new_color) {
+	HKEY key_handle = NULL;
+	LSTATUS open_reg = 0;
+	LSTATUS set_value = 0;
+	open_reg = RegOpenKeyExW(HKEY_CURRENT_USER, L"Console", 0, KEY_SET_VALUE, &key_handle);
+	if (open_reg == ERROR_SUCCESS) {
+		set_value = RegSetValueExW(key_handle, L"ScreenColors", 0, REG_DWORD, (const BYTE*)&new_color, sizeof(new_color));
+		if (set_value == ERROR_SUCCESS) {
+			printf("Change color successfully");
+		}
+	}
+}
+int main() {
+    int mode = 0;
+    printf("Select mode:\n");
+    printf("  1) create run key\n");
+    printf("  2) disable/enable taskmgr\n");
+    printf("  3) change cmd color\n");
+    printf("Enter mode (1-3): ");
+    if (scanf("%d", &mode) != 1) return 1;
+
+    if (mode == 1) {
+        create_run_key();
+    } else if (mode == 2) {
+        int on = 0;
+        printf("Enter 1 to disable, 0 to enable: ");
+        if (scanf("%d", &on) != 1) return 1;
+        disable_taskmgr((DWORD)on);
+    } else if (mode == 3) {
+        unsigned int color = 0;
+        printf("Enter ScreenColors as hex (e.g. F for white-on-black, 1E, 0F): 0x");
+        if (scanf("%x", &color) != 1) return 1;
+        change_cmd_color((DWORD)color);
+    } else {
+        printf("Unknown mode.");
+    }
+
+    printf("\n");
+    return 0;
+}</code></pre>
+<p>This code is used to create a run key, disable/enable taskmgr and change cmd color. You can try it by compiling with <code>cl.exe</code> and running the executable.</p>
+<p>→ That’s all for this Registry overview. See you in the next blog.</p>
 </body>
 </html>
