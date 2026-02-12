@@ -74,7 +74,13 @@ pWord-&gt;Selection-&gt;TypeText(L"Hello");
         <li>Proper error handling and cleanup of COM interfaces</li>
     </ul>
 
-    <pre><code>#include &lt;Windows.h&gt;
+    <pre><code>
+/*We will use ITaskService to connect to the Task Scheduler, ITaskFolder to get the root folder, ITaskDefinition to create a task, 
+IRegistrationInfo to set the author, IPrincipal to set the security context and privileges, ITaskSettings to set the settings, ITriggerCollection to create a trigger, 
+ITrigger to create a trigger, ILogonTrigger to create a logon trigger, IActionCollection to create an action, IAction to create an action, IExecAction to create a exec action, 
+IRegisteredTask to register the task.*/
+
+#include &lt;Windows.h&gt;
 #include &lt;comdef.h&gt;
 #include &lt;taskschd.h&gt;
 #include &lt;stdio.h&gt;
