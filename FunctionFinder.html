@@ -8,104 +8,106 @@
 </head>
 <body>
     <h1 style="text-align: left;">
-        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDangs Blog</a>
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
     </h1>
     <h1 style="text-align: center;">FUNCTION FINDER</h1>
     <h1 style="font-size: 20;">TOPIC: PEB, LDR AND FUNCTION SEARCH IN PROCESS MEMORY</h1>
 
-    <!-- Introduction (added) -->
-    <p>
+    <p class="mynote">
         In this blog we will walk through how to search for a function inside all modules that are loaded in the current
-        process, by using low-level Windows internals such as the PEB (Process Environment Block), the TEB
-        (Thread Environment Block), and the loader&apos;s module list.  
-        We will also briefly touch on the PE (Portable Executable) format to understand how the export table works, and
+        process, by using low-level Windows internals such as the <code class="inlinecode">PEB</code> (Process Environment Block), the <code class="inlinecode">TEB</code>
+        (Thread Environment Block), and the loader's module list.<br>
+        We will also briefly touch on the <code class="inlinecode">PE</code> (Portable Executable) format to understand how the export table works, and
         finish with a full C code example that you can compile and run.
     </p>
 
     <h2>1. Notes and Explanation</h2>
 
-    <p>Function Finder</p>
+    <p class="mynote"><strong>Function Finder</strong></p>
 
-    <pre><code>typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
-	PVOID Reserved1[2];
-	LIST_ENTRY InMemoryOrderLinks;
-	PVOID Reserved2[2];
-	PVOID DllBase;
-	PVOID Reserved3[2];
-	UNICODE_STRING FullDllName;
-	UNICODE_STRING BaseDllName;
-	PVOID Reserved5[2];
+    <pre class="codeblock"><code class="codeblock">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    PVOID Reserved1[2];
+    LIST_ENTRY InMemoryOrderLinks;
+    PVOID Reserved2[2];
+    PVOID DllBase;
+    PVOID Reserved3[2];
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    PVOID Reserved5[2];
 #pragma warning(push)
-#pragma warning(disable: 4201) 
-	union {
-		ULONG CheckSum;
-		PVOID Reserved6;
-	} DUMMYUNIONNAME;
+#pragma warning(disable: 4201)
+    union {
+        ULONG CheckSum;
+        PVOID Reserved6;
+    } DUMMYUNIONNAME;
 #pragma warning(pop)
-	ULONG TimeDateStamp;
+    ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;</code></pre>
 
-    <p>First step I will custom the LDR_DATA_TABLE_ENTRY_CUSTOM since the BaseDllName is reserved. </p>
-
-    <pre><code>BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
-	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
-	if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE; 
-	PIMAGE_NT_HEADERS nt =
-		(PIMAGE_NT_HEADERS)((BYTE*)dllBase + dos-&gt;e_lfanew);
-
-	if (nt-&gt;Signature != IMAGE_NT_SIGNATURE) return FALSE; 
-	DWORD exportRVA =
-		nt-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-	
-	if (!exportRVA) return FALSE; 
-	PIMAGE_EXPORT_DIRECTORY exp =
-		(PIMAGE_EXPORT_DIRECTORY)((BYTE*)dllBase + exportRVA);
-
-	DWORD* names = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfNames);
-	DWORD* funcs = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfFunctions);
-	WORD* ords = (WORD*)((BYTE*)dllBase + exp-&gt;AddressOfNameOrdinals);
-
-	for (DWORD i = 0; i &lt; exp-&gt;NumberOfNames; i++) {
-		char* name = (char*)((BYTE*)dllBase + names[i]);
-		if (strcmp(name, fnName) == 0) {
-			void* fnAddr = (BYTE*)dllBase + funcs[ords[i]];
-			printf("Found %-20s \n", fnName);
-			return TRUE;
-		}
-	}
-	return FALSE;
-}</code></pre>
-
-    <p>
-        Next step I will get the base of PE format which is DOS header. And then I continue through the PE format untill i get to
-        OptionalHeader. I got the exportRVA inside OptionHeader.DataDirectory[0] (the first one), so we got the relative address.
-        After that we plus it with the dll base address to get the Address. Final step when we got the names, funcs, ordinals addresses by adding the dll base address 
-        with the RVA of the names, funcs, ordinals. Then create a loop to compare the names. That&apos;s how we search function in a DLL, now we move on to &quot;How do we get the dll base&quot;.
+    <p class="mynote">
+        First step I will custom the <strong>LDR_DATA_TABLE_ENTRY_CUSTOM</strong> since the <code class="inlinecode">BaseDllName</code> is reserved. 
     </p>
 
-    <pre><code>void FindFunctionInProcess(const char* fnName) {
-	PPEB peb = (PPEB)__readgsqword(0x60);
-	PPEB_LDR_DATA ldr = peb-&gt;Ldr;
-	LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
-	LIST_ENTRY* curr = head-&gt;Flink;
+    <pre class="codeblock"><code class="codeblock">BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
+    if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE;
+    PIMAGE_NT_HEADERS nt =
+        (PIMAGE_NT_HEADERS)((BYTE*)dllBase + dos-&gt;e_lfanew);
 
-	while (curr != head) {
-		PLDR_DATA_TABLE_ENTRY_CUSTOM entry =
-			CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+    if (nt-&gt;Signature != IMAGE_NT_SIGNATURE) return FALSE;
+    DWORD exportRVA =
+        nt-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    
+    if (!exportRVA) return FALSE;
+    PIMAGE_EXPORT_DIRECTORY exp =
+        (PIMAGE_EXPORT_DIRECTORY)((BYTE*)dllBase + exportRVA);
 
-		if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
-			if (SearchFunctionInDll(entry-&gt;DllBase, fnName)) {
-				wprintf(L"-&gt; DLL: %s\n", entry-&gt;BaseDllName.Buffer);
-				return;
-			}
-		}
-		curr = curr-&gt;Flink;
-	}
+    DWORD* names = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfNames);
+    DWORD* funcs = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfFunctions);
+    WORD* ords = (WORD*)((BYTE*)dllBase + exp-&gt;AddressOfNameOrdinals);
 
-	printf("Function not found: %s\n", fnName);
+    for (DWORD i = 0; i &lt; exp-&gt;NumberOfNames; i++) {
+        char* name = (char*)((BYTE*)dllBase + names[i]);
+        if (strcmp(name, fnName) == 0) {
+            void* fnAddr = (BYTE*)dllBase + funcs[ords[i]];
+            printf("Found %-20s \n", fnName);
+            return TRUE;
+        }
+    }
+    return FALSE;
 }</code></pre>
 
-    <pre><code>struct _TEB {
+    <p class="mynote">
+        Next step I will get the base of PE format which is DOS header. And then I continue through the PE format until I get to
+        <code class="inlinecode">OptionalHeader</code>. I got the <code class="inlinecode">exportRVA</code> inside <code class="inlinecode">OptionHeader.DataDirectory[0]</code> (the first one), so we got the relative address.
+        After that, we plus it with the DLL base address to get the Address. Final step is when we got the <code class="inlinecode">names</code>, <code class="inlinecode">funcs</code>, <code class="inlinecode">ordinals</code>
+        addresses by adding the DLL base address with the RVA offsets of the names, funcs, ordinals. Then create a loop to compare the names.
+        That's how we search function in a DLL. Now we move on to "How do we get the DLL base".
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">void FindFunctionInProcess(const char* fnName) {
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    PPEB_LDR_DATA ldr = peb-&gt;Ldr;
+    LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
+    LIST_ENTRY* curr = head-&gt;Flink;
+
+    while (curr != head) {
+        PLDR_DATA_TABLE_ENTRY_CUSTOM entry =
+            CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+
+        if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
+            if (SearchFunctionInDll(entry-&gt;DllBase, fnName)) {
+                wprintf(L"-&gt; DLL: %s\n", entry-&gt;BaseDllName.Buffer);
+                return;
+            }
+        }
+        curr = curr-&gt;Flink;
+    }
+
+    printf("Function not found: %s\n", fnName);
+}</code></pre>
+
+    <pre class="codeblock"><code class="codeblock">struct _TEB {
     NT_TIB NtTib;                // Offset 0x00
     PVOID EnvironmentPointer;    // Offset 0x38
     CID ClientId;                // Offset 0x40
@@ -115,143 +117,142 @@
     // ...
 };</code></pre>
 
-    <p>
-        readqsword will read from TEB (Thread Environment Block) base readqsword(0x60)will read PEB. Then we will use the Loader Data (LDR) inside PEB
-        InMemoryOrderModuleList includes Dlls and the .exe itself inside the process. I will create a loop: first we make an anchor is head and curr
-        will keep moving foward untill it meets head again. Inside the loop, curr( Flink) is in the big struct _LDR_DATA_TABLE_ENTRY_CUSTOM
-        so I will use the macro CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks) to get to the Struct. Then we will check if
-        the entry-&gt;DllBase &amp; entry-&gt;BaseDllName.Buffer is some NULL value by doing so if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer). After that
-        we will put the dll base into the SearchFunctionInDll(). If the function return TRUE that&apos;s mean we have found it.
+    <p class="mynote">
+        <code class="inlinecode">__readgsqword(0x60)</code> will read from TEB (Thread Environment Block). At offset 0x60, you get the PEB. Then we will use the Loader Data (LDR) 
+        inside the PEB. <br>
+        <code class="inlinecode">InMemoryOrderModuleList</code> includes DLLs and the .exe itself inside the process. I will create a loop: first, we make an anchor 
+        called <strong>head</strong> and <strong>curr</strong> will keep moving forward until it meets <strong>head</strong> again. 
+        Inside the loop, <code class="inlinecode">curr</code> (<code class="inlinecode">Flink</code>) is in the big struct <code class="inlinecode">_LDR_DATA_TABLE_ENTRY_CUSTOM</code>,
+        so I will use the macro <code class="inlinecode">CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks)</code> to get to the Struct. 
+        Then we will check if the <code class="inlinecode">entry-&gt;DllBase</code> &amp; <code class="inlinecode">entry-&gt;BaseDllName.Buffer</code> are not NULL. 
+        After that we will put the DLL base into the <code class="inlinecode">SearchFunctionInDll()</code>. If the function returns TRUE that means we have found it.
     </p>
 
-    <pre><code>int main() {
-	char fnName[128];
+    <pre class="codeblock"><code class="codeblock">int main() {
+    char fnName[128];
 
-	LoadLibraryA("user32.dll");
+    LoadLibraryA("user32.dll");
 
-	while (1) {
-		printf("\nEnter function name (or exit): ");
-		scanf_s("%127s", fnName, (unsigned)_countof(fnName));
+    while (1) {
+        printf("\nEnter function name (or exit): ");
+        scanf_s("%127s", fnName, (unsigned)_countof(fnName));
 
-		if (strcmp(fnName, "exit") == 0) {
-			break; 
-		}
+        if (strcmp(fnName, "exit") == 0) {
+            break; 
+        }
 
-		FindFunctionInProcess(fnName);
-	}
+        FindFunctionInProcess(fnName);
+    }
 
-	return 0;
+    return 0;
 }</code></pre>
 
-    <p>
-        Because this method is read ProcessMemory so you have to use LoadLibrary to have the wider range of searching. If you Load too much it might 
-        slow down.
+    <p class="mynote">
+        Because this method reads process memory directly, you have to use <code class="inlinecode">LoadLibrary</code> to have the wider range of searching.
+        If you load too much it might slow down the process.
     </p>
 
     <h2>2. Full C Code Example</h2>
-    <p>Here is the full C source code version of this Function Finder:</p>
+    <p class="mynote">Here is the full C source code version of this Function Finder:</p>
 
-    <pre><code>#include &lt;Windows.h&gt;
+    <pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
 #include &lt;winternl.h&gt;
 #include &lt;stdio.h&gt;
 
 typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
-	PVOID Reserved1[2];
-	LIST_ENTRY InMemoryOrderLinks;
-	PVOID Reserved2[2];
-	PVOID DllBase;
-	PVOID Reserved3[2];
-	UNICODE_STRING FullDllName;
-	UNICODE_STRING BaseDllName;
-	PVOID Reserved5[2];
+    PVOID Reserved1[2];
+    LIST_ENTRY InMemoryOrderLinks;
+    PVOID Reserved2[2];
+    PVOID DllBase;
+    PVOID Reserved3[2];
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    PVOID Reserved5[2];
 #pragma warning(push)
-#pragma warning(disable: 4201) 
-	union {
-		ULONG CheckSum;
-		PVOID Reserved6;
-	} DUMMYUNIONNAME;
+#pragma warning(disable: 4201)
+    union {
+        ULONG CheckSum;
+        PVOID Reserved6;
+    } DUMMYUNIONNAME;
 #pragma warning(pop)
-	ULONG TimeDateStamp;
+    ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;
 
 BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
-	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
-	if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE; 
-	PIMAGE_NT_HEADERS nt =
-		(PIMAGE_NT_HEADERS)((BYTE*)dllBase + dos-&gt;e_lfanew);
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
+    if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE;
+    PIMAGE_NT_HEADERS nt =
+        (PIMAGE_NT_HEADERS)((BYTE*)dllBase + dos-&gt;e_lfanew);
 
-	if (nt-&gt;Signature != IMAGE_NT_SIGNATURE) return FALSE; 
-	DWORD exportRVA =
-		nt-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-	
-	if (!exportRVA) return FALSE; 
-	PIMAGE_EXPORT_DIRECTORY exp =
-		(PIMAGE_EXPORT_DIRECTORY)((BYTE*)dllBase + exportRVA);
+    if (nt-&gt;Signature != IMAGE_NT_SIGNATURE) return FALSE;
+    DWORD exportRVA =
+        nt-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    
+    if (!exportRVA) return FALSE;
+    PIMAGE_EXPORT_DIRECTORY exp =
+        (PIMAGE_EXPORT_DIRECTORY)((BYTE*)dllBase + exportRVA);
 
-	DWORD* names = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfNames);
-	DWORD* funcs = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfFunctions);
-	WORD* ords = (WORD*)((BYTE*)dllBase + exp-&gt;AddressOfNameOrdinals);
+    DWORD* names = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfNames);
+    DWORD* funcs = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfFunctions);
+    WORD* ords = (WORD*)((BYTE*)dllBase + exp-&gt;AddressOfNameOrdinals);
 
-	for (DWORD i = 0; i &lt; exp-&gt;NumberOfNames; i++) {
-		char* name = (char*)((BYTE*)dllBase + names[i]);
-		if (strcmp(name, fnName) == 0) {
-			void* fnAddr = (BYTE*)dllBase + funcs[ords[i]];
-			printf("Found %-20s \n", fnName);
-			return TRUE;
-		}
-	}
-	return FALSE;
+    for (DWORD i = 0; i &lt; exp-&gt;NumberOfNames; i++) {
+        char* name = (char*)((BYTE*)dllBase + names[i]);
+        if (strcmp(name, fnName) == 0) {
+            void* fnAddr = (BYTE*)dllBase + funcs[ords[i]];
+            printf("Found %-20s \n", fnName);
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 void FindFunctionInProcess(const char* fnName) {
-	PPEB peb = (PPEB)__readgsqword(0x60);
-	PPEB_LDR_DATA ldr = peb-&gt;Ldr;
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    PPEB_LDR_DATA ldr = peb-&gt;Ldr;
 
-	LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
-	LIST_ENTRY* curr = head-&gt;Flink;
+    LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
+    LIST_ENTRY* curr = head-&gt;Flink;
 
-	while (curr != head) {
-		PLDR_DATA_TABLE_ENTRY_CUSTOM entry =
-			CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+    while (curr != head) {
+        PLDR_DATA_TABLE_ENTRY_CUSTOM entry =
+            CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
 
-		if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
-			if (SearchFunctionInDll(entry-&gt;DllBase, fnName)) {
-				wprintf(L"-&gt; DLL: %s\n", entry-&gt;BaseDllName.Buffer);
-				return;
-			}
-		}
-		curr = curr-&gt;Flink;
-	}
-
-	printf("Function not found: %s\n", fnName);
+        if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
+            if (SearchFunctionInDll(entry-&gt;DllBase, fnName)) {
+                wprintf(L"-&gt; DLL: %s\n", entry-&gt;BaseDllName.Buffer);
+                return;
+            }
+        }
+        curr = curr-&gt;Flink;
+    }
+    printf("Function not found: %s\n", fnName);
 }
 
 int main() {
-	char fnName[128];
+    char fnName[128];
 
-	LoadLibraryA("user32.dll");
+    LoadLibraryA("user32.dll");
 
-	while (1) {
-		printf("\nEnter function name (or exit): ");
-		scanf_s("%127s", fnName, (unsigned)_countof(fnName));
+    while (1) {
+        printf("\nEnter function name (or exit): ");
+        scanf_s("%127s", fnName, (unsigned)_countof(fnName));
 
-		if (strcmp(fnName, "exit") == 0) {
-			break; 
-		}
+        if (strcmp(fnName, "exit") == 0) {
+            break; 
+        }
 
-		FindFunctionInProcess(fnName);
-	}
+        FindFunctionInProcess(fnName);
+    }
 
-	return 0;
+    return 0;
 }</code></pre>
-
-    <!-- Epilogue (added) -->
-    <h2>3. Epilogue</h2>
-    <p>
-        By combining knowledge of the PE format, the PEB/TEB structures, and the loader&apos;s export table, we can manually
-        resolve and locate functions inside any DLL that is loaded into our process.  
+<img src="IMAGES/FnFinder/Untitled.png" alt="FunctionFinder">
+    <p class="mynote">
+        By combining knowledge of the PE format, the PEB/TEB structures, and the loader's export table, we can manually
+        resolve and locate functions inside any DLL that is loaded into our process.<br>
         This technique is useful for learning Windows internals, building custom tooling, and understanding how malware and
-        security tools often work under the hood. That&apos;s all for this Function Finder overview, see you in the next blog.
+        security tools often work under the hood. That's all for this Function Finder overview, see you in the next blog.
     </p>
 </body>
 </html>
