@@ -34,5 +34,60 @@ performs calculation almost immediately.</p>
         int main()
     </code>
 (1):The different between RBX and RSI is when you want to access to an element inside. RSI (use lodsq) will change but RBX will remain the same there.					</p>
+
+    <h2>Stack and Calling Convention</h2>
+    <p>In ASM when we <code>SUB rsp</code> we expand the size of the stack. But in this blog, for explaining I will use +8 when we push—in fact it will be -8 to rsp.</p>
+
+    <p>Example: <code>bigSum(int a, int b, int c, int d, int e)</code> returning <code>a + b + c + d + e</code>, called as <code>bigSum(10, 9, 5, 1, 10)</code>:</p>
+    <pre>// prep
+mov [rsp + 0x20], 10
+mov r9, 1
+mov r8, 5
+mov rdx, 9
+mov rcx, 10   // rsp 0
+call bigSum   // rsp = 8 -> 0
+
+bigSum:       // 8
+push rbp      // 16
+mov rbp, rsp
+sub rsp, 8    // 24
+xor rax, rax
+add rax, rcx
+add rax, rdx
+add rax, r8
+add rax, r9
+add rax, [rsp + 0x28]
+add rsp, 8    // 16
+pop rbp       // 8
+ret           // 0</pre>
+    <p>It's 0x28 (40 decimal) because 8 bytes per register × 4 = 32 bytes (0x20), but when we <code>call</code> the function it pushes the return address, so the offset from the stack pointer is 0x28.</p>
+
+    <p>Another example: a function that calls another function. We use the <strong>Borrow and repay rule</strong>: when you call a function you have to align so that the return address offset is -8 from the call.</p>
+    <pre>// print:       // 8
+//   push rbp   // 16
+//   mov rbp, rsp
+//   sub rsp, 40  // 56
+//   mov r8, rdx
+//   add rdx, rdx
+//   mov rcx, rdx
+//   xor rdx, rdx
+//   add r8, 3
+//   mov rdx, r8
+//   call mul    // 64 -> 56
+//   add rsp, 40 // 16
+//   pop rbp     // 8
+//   ret         // 0
+//
+// mul:         // 64
+//   xor rax, rax
+//   xor r8, r8
+// loop_start:
+//   CMP r8, rdx
+//   JGE loop_end
+//   add rax, rcx
+//   INC r8
+//   JMP loop_start
+// loop_end:
+//   ret         // 56</pre>
 </body>
 </html>
