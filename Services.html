@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Service Accounts</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1 style="text-align: left; "><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang&#39;s Blog</a><h1></h1>
+    <h1 style="text-align: center;">Windows Services and Service Accounts</h1>
+
+    <p>
+        Local System: Highest Privilege, it has access to all files, registry and system resources. Windows Defender and Windows Update will use this account
+    </p>
+    <p>
+        Network Service: This account has low priv (about the same as a normal user) on the computer. But, it&#39;s allowed to the Internet with credentials of the computer. DNS client or DHCP services needs internet. But don&#39;t need to edit or delete the system.
+    </p>
+    <p>
+        Local Services: This account has low privlege, it doesn&#39;t have access to the internet (if they do it will be anonymous, no credentials). Windows Audio, Print Spooler.
+    </p>
+    <p>
+        Virtual Account: Microsoft create this type to isolate. Instead of using lots of Local Service, Windows create a virtual account for each service. THis account doesn&#39;t need password. When you use SQL server, system will run it as NTSERVICE account. If this account got hacked, the hacker will only have access to the data of SQL but not others services.
+    </p>
+
+    <h2>This is my code to Create a service:</h2>
+
+    <pre><code>#include &lt;Windows.h&gt;
+        #include &lt;stdio.h&gt;
+        SERVICE_STATUS gservice_stats = {};
+        SERVICE_STATUS_HANDLE gservice_stats_handle = NULL;
+        LPWSTR service_name = (LPWSTR)L"notepad service";
+        LPCWSTR service_path = L"C:\\MyService\\notepadService.exe";
+        
+         /* To create a service you will need Service_Status and Service_Status_Handle to create */
+        void WINAPI service_ctrl_handler(DWORD control_code) {
+            if (control_code == SERVICE_CONTROL_STOP)
+            {
+                gservice_stats.dwCurrentState = SERVICE_STOPPED;
+                SetServiceStatus(gservice_stats_handle, &gservice_stats);
+            }
+        }
+        
+         /* First we need a service control handler function this function will help services.msc can stop your service. Don&#39;t need to use taskkill */
+        void WINAPI service_main(DWORD agrc, LPTSTR* agrv) {
+            gservice_stats_handle = RegisterServiceCtrlHandlerW(L"notepad service", service_ctrl_handler);
+        
+            gservice_stats.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+            gservice_stats.dwCurrentState = SERVICE_RUNNING;
+            gservice_stats.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+            SetServiceStatus(gservice_stats_handle, &gservice_stats);
+            while (gservice_stats.dwCurrentState == SERVICE_RUNNING) {
+                Sleep(1000);
+            }
+        }
+        
+         /* Service main is the most important services.msc will use this to run your service */
+        
+        /* This function is needed to register your service to the Windows system */
+        void create_service() {
+            SC_HANDLE service_handle = NULL;
+            SC_HANDLE service_manager_handle = NULL;
+            
+            /* Open SCManager to get permission to create service. It is like the boss of all services */
+            service_manager_handle = OpenSCManager(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CREATE_SERVICE);
+            service_handle = CreateServiceW(service_manager_handle,
+                service_name,             /* The internal name of the service */
+                L"vuax&#39;s local services", /* The display name you see in services.msc */
+                SERVICE_ALL_ACCESS,       /* We need all access to start the service later */
+                SERVICE_WIN32_OWN_PROCESS,
+                SERVICE_DEMAND_START,     /* This means manual start */
+                SERVICE_ERROR_CRITICAL,
+                service_path,             /* The path to your .exe file */
+                NULL,
+                NULL,
+                NULL,
+                L"NT AUTHORITY\\NetworkService", /* lpServiceStartName: The account running this service */
+                /* This can be L"NT AUTHORITY\\LocalService" for Local Service or NULL for Local System Service. */
+                L"");
+        
+            if (service_handle == NULL)
+            {
+                printf("\nFailed to Create Service");
+                return;
+            }
+            printf("\nCreated SERVICE!");
+            
+            /* Tell SCManager to start the service immediately after creation */
+            if (StartService(service_handle, 0, NULL)) {
+                printf("\nService Started!");
+            }
+            else {
+                printf("\nFailed to Start Service. Error code: %lu", GetLastError());
+            }
+        
+            return;
+        }
+        
+        /* This function is needed to create service */
+        int main() {
+            SERVICE_TABLE_ENTRYW table[] = { { (LPWSTR)L"notepad service", (LPSERVICE_MAIN_FUNCTIONW)service_main }, { NULL, NULL } };
+            StartServiceCtrlDispatcherW(table);
+            create_service();
+            return 0;
+        }
+        /* When you want to create a Network Service, Local Service, or Local Service you need to change L"NT AUTHORITY\\NetworkService" or L"NT AUTHORITY\\LocalService" or NULL for Local System in the lpServiceStartName.
+        * ServiceCtrlHandler, ServiceMain are the one who runs the service, create_service to create a service.
+        */</code></pre>
+        <p>That's enough for today see you in the next blog.</p>
+</body>
+</html>

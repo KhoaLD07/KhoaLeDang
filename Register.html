@@ -60,7 +60,7 @@ add rax, [rsp + 0x28]
 add rsp, 8    // 16
 pop rbp       // 8
 ret           // 0</pre>
-    <p>It's 0x28 (40 decimal) because 8 bytes per register × 4 = 32 bytes (0x20), but when we <code>call</code> the function it pushes the return address, so the offset from the stack pointer is 0x28.</p>
+    <p>It's 0x28 (40 decimal) because 8 bytes per register 8 × 4 = 32 bytes (0x20), but when we <code>call</code> the function it pushes the return address, so the offset from the stack pointer is 0x28.</p>
 
     <p>Another example: a function that calls another function. We use the <strong>Borrow and repay rule</strong>: when you call a function you have to align so that the return address offset is -8 from the call.</p>
     <pre>// print:       // 8
