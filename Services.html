@@ -439,20 +439,17 @@ extern "C" __declspec(dllexport) VOID WINAPI ServiceMain(DWORD argc, LPTSTR* arg
 #include &lt;WtsApi32.h&gt;
 #include &lt;Sddl.h&gt;
 #pragma comment(lib, "Wtsapi32.lib")
-
 SERVICE_STATUS gservice_stats = {};
 SERVICE_STATUS_HANDLE gservice_stats_handle = NULL;
 LPWSTR service_name = (LPWSTR)L"notepad local service";
 LPCWSTR service_path = L"C:\\MyService\\notepadService.exe";
 LPCWSTR service_dependencies = (LPCWSTR)L"king_service";
-
 // Display a message to the currently active user
 void show_message() {
     DWORD response;
     LPCWSTR title = L"Service Notification";
     LPCWSTR message = L"Hello! Your service is running successfully.";
     DWORD sessionId = WTSGetActiveConsoleSessionId();
-
     WTSSendMessageW(
         WTS_CURRENT_SERVER_HANDLE,
         sessionId,
@@ -466,7 +463,6 @@ void show_message() {
         FALSE
     );
 }
-
 // Service control handler to process service control requests (e.g., stop)
 void WINAPI service_ctrl_handler(DWORD control_code) {
     if (control_code == SERVICE_CONTROL_STOP) {
@@ -474,22 +470,18 @@ void WINAPI service_ctrl_handler(DWORD control_code) {
         SetServiceStatus(gservice_stats_handle, &gservice_stats);
     }
 }
-
 // Main function run by the service
 void WINAPI service_main(DWORD argc, LPTSTR* argv) {
     gservice_stats_handle = RegisterServiceCtrlHandlerW(service_name, service_ctrl_handler);
-
     gservice_stats.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     gservice_stats.dwCurrentState = SERVICE_RUNNING;
     gservice_stats.dwControlsAccepted = SERVICE_ACCEPT_STOP;
     SetServiceStatus(gservice_stats_handle, &gservice_stats);
-
     show_message();
     while (gservice_stats.dwCurrentState == SERVICE_RUNNING) {
         Sleep(1000);
     }
 }
-
 // Create a new service
 void create_service() {
     SC_HANDLE service_handle = NULL;
@@ -515,7 +507,6 @@ void create_service() {
         L"NT AUTHORITY\\LocalService",    // Account to start service as
         L""
     );
-
     if (!service_handle) {
         CloseServiceHandle(service_manager_handle);
         printf("\nFailed to Create Service %lu", GetLastError());
@@ -525,13 +516,11 @@ void create_service() {
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
-
 // Start the given service by name
 void start_service(LPCWSTR service_name) {
     SC_HANDLE service_handle = NULL;
     SC_HANDLE service_manager_handle = NULL;
     BOOL success = FALSE;
-
     service_manager_handle = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CONNECT);
     if (!service_manager_handle) {
         printf("\nFAILED TO OPEN SCMANAGER: %lu", GetLastError());
@@ -554,14 +543,12 @@ void start_service(LPCWSTR service_name) {
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
-
 // Stop and delete a service by name
 void stop_and_delete(LPCWSTR service_name) {
     SC_HANDLE service_handle = NULL;
     SC_HANDLE service_manager_handle = NULL;
     BOOL success = FALSE;
     SERVICE_STATUS status = {};
-
     service_manager_handle = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CONNECT);
     service_handle = OpenServiceW(service_manager_handle, service_name, SERVICE_STOP | DELETE);
     if (!service_handle) {
@@ -585,12 +572,10 @@ void stop_and_delete(LPCWSTR service_name) {
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
-
 // Protect a service so only SYSTEM can modify/delete it
 void protect_service(LPCWSTR service_name) {
     SC_HANDLE service_handle = NULL;
     SC_HANDLE service_manager_handle = NULL;
-
     service_manager_handle = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CONNECT);
     if (!service_manager_handle) {
         printf("\nFAILED TO OPEN SCMANAGER: %lu", GetLastError());
@@ -602,10 +587,8 @@ void protect_service(LPCWSTR service_name) {
         printf("\nFAILED TO OPEN SERVICE FOR PROTECTING: %lu", GetLastError());
         return;
     }
-
     LPCWSTR sddl = L"D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWLOCRRCWD;;;BA)"; // SYSTEM: Full, Admins: Read only
     PSECURITY_DESCRIPTOR pSD = NULL;
-
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &pSD, NULL)) {
         if (SetServiceObjectSecurity(service_handle, DACL_SECURITY_INFORMATION, pSD)) {
             printf("\nSERVICE %ws IS NOW PROTECTED!", service_name);
@@ -616,16 +599,13 @@ void protect_service(LPCWSTR service_name) {
     } else {
         printf("\nFAILED TO PARSE SECURITY STRING: %lu", GetLastError());
     }
-
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
-
 // Remove protection: allow administrators to fully control service
 void unprotect_service(LPCWSTR service_name) {
     SC_HANDLE service_handle = NULL;
     SC_HANDLE service_manager_handle = NULL;
-
     service_manager_handle = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CONNECT);
     if (!service_manager_handle) {
         printf("\nFAILED TO OPEN SCMANAGER: %lu", GetLastError());
@@ -637,10 +617,8 @@ void unprotect_service(LPCWSTR service_name) {
         printf("\nFAILED TO OPEN SERVICE FOR UNPROTECTING: %lu", GetLastError());
         return;
     }
-
     LPCWSTR sddl = L"D:(A;;CCLCSWRPWPDTLOCRRCSD;;;SY)(A;;CCLCSWRPWPDTLOCRRCWDSD;;;BA)";
     PSECURITY_DESCRIPTOR pSD = NULL;
-
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &pSD, NULL)) {
         if (SetServiceObjectSecurity(service_handle, DACL_SECURITY_INFORMATION, pSD)) {
             printf("\nSERVICE %ws IS NOW UNPROTECTED!", service_name);
@@ -655,14 +633,12 @@ void unprotect_service(LPCWSTR service_name) {
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
-
 // Set recover actions and required privileges for a service
 void set_recover_action(LPWSTR service_name) {
     SC_HANDLE service_manager_handle = NULL;
     SC_HANDLE service_handle = NULL;
     BOOL success = FALSE;
     SERVICE_FAILURE_ACTIONSW failure_actions = { 0 };
-
     service_manager_handle = OpenSCManagerW(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CONNECT);
     if (!service_manager_handle) {
         printf("\nFAILED TO OPEN SCMANAGER TO SET RECOVER ACTION");
@@ -674,23 +650,18 @@ void set_recover_action(LPWSTR service_name) {
         printf("\nFAILED TO OPEN SERVICE TO SET RECOVER ACTION");
         return;
     }
-
     SC_ACTION action[3];
     action[0].Type = SC_ACTION_RESTART;
     action[0].Delay = 5000;
-
     action[1].Type = SC_ACTION_RESTART;
     action[1].Delay = 10000;
-
     action[2].Type = SC_ACTION_NONE;
     action[2].Delay = 0;
-
     failure_actions.dwResetPeriod = 86400;
     failure_actions.lpRebootMsg = NULL;
     failure_actions.lpCommand = NULL;
     failure_actions.cActions = 3;
     failure_actions.lpsaActions = action;
-
     LPCWSTR privileges = L"SeCreateGlobalPrivilege\0SeImpersonatePrivilege\0";
     SERVICE_REQUIRED_PRIVILEGES_INFO info;
     info.pmszRequiredPrivileges = (LPWSTR)privileges;
@@ -700,14 +671,12 @@ void set_recover_action(LPWSTR service_name) {
             &info)) {
         printf("\nadded required privileges");
     }
-
     success = ChangeServiceConfig2W(service_handle, SERVICE_CONFIG_FAILURE_ACTIONS, &failure_actions);
     if (success == TRUE) {
         printf("\nRECOVER ACTIONS CONFIGURED!");
     } else {
         printf("\nFAILED TO CONFIGURED ACTION: %lu", GetLastError());
     }
-
     CloseServiceHandle(service_handle);
     CloseServiceHandle(service_manager_handle);
 }
@@ -718,7 +687,6 @@ int main() {
         { NULL, NULL }
     };
     StartServiceCtrlDispatcherW(table);
-
     int input = 0;
     while (true) {
         printf("\nMODE 1: Create Service\nMode 2: Start Service\nMode 3: Stop and delete service\nMode 4:Protect service settings\nMode 5: unprotected service\nMode 6: SetRecoverActions\n");
@@ -748,6 +716,101 @@ int main() {
         }
     }
     return 0;
+}
+    </code></pre>
+    <h2>FULL DLL SOURCE CODE</h2>
+    <pre class="codeblock"><code>
+        // dllmain.cpp : Defines the entry point for the DLL application.
+#include "pch.h"
+BOOL APIENTRY DllMain( HMODULE hModule,
+                       DWORD  ul_reason_for_call,
+                       LPVOID lpReserved
+                     )
+{
+    switch (ul_reason_for_call)
+    {
+    case DLL_PROCESS_ATTACH:
+    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_DETACH:
+    case DLL_PROCESS_DETACH:
+        break;
+    }
+    return TRUE;
+}
+SERVICE_STATUS        gservice_status = { 0 };
+SERVICE_STATUS_HANDLE gstatus_handle = NULL;
+HANDLE                gservice_stop_event = INVALID_HANDLE_VALUE;
+void show_message() {
+    DWORD response;
+    LPCWSTR title = L"Service Notification";
+    LPCWSTR message = L"Hello! Your service is running successfully.";
+    DWORD sessionId = WTSGetActiveConsoleSessionId();
+
+    if (sessionId != 0xFFFFFFFF) {
+        WTSSendMessageW(
+            WTS_CURRENT_SERVER_HANDLE,
+            sessionId,
+            (LPWSTR)title,
+            (lstrlenW(title) + 1) * sizeof(WCHAR),  
+            (LPWSTR)message,
+            (lstrlenW(message) + 1) * sizeof(WCHAR), 
+            MB_OK | MB_ICONINFORMATION,
+            100,
+            &response,
+            FALSE
+        );
+    }
+}
+#define SERVICE_NAME "MyNoteService"
+VOID WINAPI ServiceCtrlHandler(DWORD ctrl_code) {
+    switch (ctrl_code) {
+    case SERVICE_CONTROL_STOP:
+        gservice_status.dwCurrentState = SERVICE_STOP_PENDING;
+        SetServiceStatus(gstatus_handle, &gservice_status);
+        SetEvent(gservice_stop_event);
+        break;
+    default:
+        break;
+    }
+}
+DWORD WINAPI ServiceWorkerThread(LPVOID lp_param) {
+    while (WaitForSingleObject(gservice_stop_event, 0) != WAIT_OBJECT_0) {
+        show_message();
+        Sleep(3000);
+    }
+    CloseHandle(gservice_stop_event);
+    gservice_status.dwCurrentState = SERVICE_STOPPED;
+    SetServiceStatus(gstatus_handle, &gservice_status);
+    return ERROR_SUCCESS;
+}
+// ---------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------
+extern "C" __declspec(dllexport) VOID WINAPI ServiceMain(DWORD argc, LPTSTR* argv) {
+    gstatus_handle = RegisterServiceCtrlHandlerA(SERVICE_NAME, ServiceCtrlHandler);
+    if (!gstatus_handle) return;
+    gservice_status.dwServiceType = SERVICE_WIN32_SHARE_PROCESS; // IMPORTANT NEED TO RUN THE SAME PROCESS
+    gservice_status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+    gservice_status.dwCurrentState = SERVICE_START_PENDING;
+    gservice_status.dwWin32ExitCode = 0;
+    gservice_status.dwServiceSpecificExitCode = 0;
+    gservice_status.dwCheckPoint = 0;
+    gservice_status.dwWaitHint = 0;
+    SetServiceStatus(gstatus_handle, &gservice_status);
+    gservice_stop_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (gservice_stop_event == NULL) {
+        gservice_status.dwCurrentState = SERVICE_STOPPED;
+        gservice_status.dwWin32ExitCode = GetLastError();
+        SetServiceStatus(gstatus_handle, &gservice_status);
+        return;
+    }
+    gservice_status.dwCurrentState = SERVICE_RUNNING;
+    SetServiceStatus(gstatus_handle, &gservice_status);
+
+    HANDLE hThread = CreateThread(NULL, 0, ServiceWorkerThread, NULL, 0, NULL);
+    if (hThread) {
+        CloseHandle(hThread);
+    }
 }
     </code></pre>
 </body>
