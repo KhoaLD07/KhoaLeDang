@@ -120,8 +120,9 @@
     <p class="mynote">
         <code class="inlinecode">__readgsqword(0x60)</code> will read from TEB (Thread Environment Block). At offset 0x60, you get the PEB. Then we will use the Loader Data (LDR) 
         inside the PEB. <br>
-        <code class="inlinecode">InMemoryOrderModuleList</code> includes DLLs and the .exe itself inside the process. I will create a loop: first, we make an anchor 
-        called <strong>head</strong> and <strong>curr</strong> will keep moving forward until it meets <strong>head</strong> again. 
+        <code class="inlinecode">InMemoryOrderModuleList</code> is a doubled linked list included in PPEB_LDR_DATA struct and in all the DLLs (LDR_DATA_TABLE_ENTRY_CUSTOM) loaded in the memory. Then we use CONTAINING_RECORD macro to get to the Struct. I will create a loop: first, we make an anchor 
+        called <strong>head</strong> and <strong>curr</strong> will keep moving forward until it meets <strong>head</strong> again. <br>
+        LoadLibrary so the DLL will apear in the RAM so InMemoryOrderModuleList will be updated. Flink will go through the new DLL and more DLLs can be checked.   
         Inside the loop, <code class="inlinecode">curr</code> (<code class="inlinecode">Flink</code>) is in the big struct <code class="inlinecode">_LDR_DATA_TABLE_ENTRY_CUSTOM</code>,
         so I will use the macro <code class="inlinecode">CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks)</code> to get to the Struct. 
         Then we will check if the <code class="inlinecode">entry-&gt;DllBase</code> &amp; <code class="inlinecode">entry-&gt;BaseDllName.Buffer</code> are not NULL. 
@@ -247,7 +248,7 @@ int main() {
 
     return 0;
 }</code></pre>
-<img src="IMAGES/FnFinder/Untitled.png" alt="FunctionFinder">
+<img src="IMAGES/FnFinder/FnFinder.png" alt="FunctionFinder">
     <p class="mynote">
         By combining knowledge of the PE format, the PEB/TEB structures, and the loader's export table, we can manually
         resolve and locate functions inside any DLL that is loaded into our process.<br>
