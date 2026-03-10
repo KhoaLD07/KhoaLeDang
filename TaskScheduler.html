@@ -51,13 +51,13 @@
     <h2>3. Connection with the Registry</h2>
     <p>Scheduled tasks are persistent because their configuration is stored on disk and referenced through the Registry. Even after a reboot, the tasks are still there.</p>
     <p>One important Registry location is:</p>
-    <p><code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks</code></p>
+    <p><code >HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks</code></p>
     <p>This area is used by Windows to track and cache information about scheduled tasks. Malware that abuses Task Scheduler for persistence often leaves traces here, which can be useful for forensics.</p>
 
     <h2>4. Using COM to Control Task Scheduler</h2>
     <p>Instead of clicking around in the Task Scheduler GUI, we can use COM (Component Object Model) to talk directly to the Task Scheduler service and create tasks programmatically.</p>
     <p>General COM pattern looks like this:</p>
-    <pre><code>IWordApp* pWord;
+    <pre><code class ="codeblock">IWordApp* pWord;
 CoCreateInstance(CLSID_Word, ..., &amp;pWord);
 pWord-&gt;Documents-&gt;Add();
 pWord-&gt;Selection-&gt;TypeText(L"Hello");
@@ -74,12 +74,28 @@ pWord-&gt;Selection-&gt;TypeText(L"Hello");
         <li>Proper error handling and cleanup of COM interfaces</li>
     </ul>
 
-    <pre><code>
-/*We will use ITaskService to connect to the Task Scheduler, ITaskFolder to get the root folder, ITaskDefinition to create a task, 
-IRegistrationInfo to set the author, IPrincipal to set the security context and privileges, ITaskSettings to set the settings, ITriggerCollection to create a trigger, 
-ITrigger to create a trigger, ILogonTrigger to create a logon trigger, IActionCollection to create an action, IAction to create an action, IExecAction to create a exec action, 
-IRegisteredTask to register the task.*/
+    <p>We will use <strong><code>ITaskService</code></strong> to connect to the Task Scheduler, <strong><code>ITaskFolder</code></strong> to get the root folder, <strong><code>ITaskDefinition</code></strong> to create a task, 
+<strong><code>IRegistrationInfo</code></strong> to set the author, <strong><code>IPrincipal</code></strong> to set the security context and privileges, <strong><code>ITaskSettings</code></strong> to set the settings, <strong><code>ITriggerCollection</code></strong> to create a trigger, 
+<strong><code>ITrigger</code></strong> to create a trigger, <strong><code>ILogonTrigger</code></strong> to create a logon trigger, <strong><code>IActionCollection</code></strong> to create an action, <strong><code>IAction</code></strong> to create an action, <strong><code>IExecAction</code></strong> to create a exec action, 
+<strong><code>IRegisteredTask</code></strong> to register the task.</p>
 
+    <ul>
+        <li><strong><code>CoInitializeEx</code></strong> is the first thing, we need COM enviroment first.</li>
+        <li><strong><code>CoCreateInstance</code></strong> create Instance for the <strong><code>IID_ITaskService</code></strong> which includes all the services we need.</li>
+        <li><strong><code>Connect</code></strong> connect to the task scheduler. <strong><code>_variant_t()</code></strong> create a <strong>NULL variant</strong>.</li>
+        <li><strong><code>GetFolder</code></strong> get a folder to create a task. You can use different folder.</li>
+        <li><strong><code>NewTask</code></strong> create the Definition Pointer has all the settings to create a task.</li>
+        <li><strong><code>get_RegistrationInfo</code></strong> and <strong><code>put_Author</code></strong> for the AUTHOR.</li>
+        <li><strong><code>get_Principal</code></strong> and <strong><code>put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN)</code></strong> run as the user just logged on the computer.</li>
+        <li><strong><code>get_Settings</code></strong> and <strong><code>put_StartWhenAvailable(VARIANT_TRUE)</code></strong> is the condition to run the code. You can choose to run only when the computer is idle.</li>
+        <li><strong><code>get_Triggers</code></strong> is Trigger lists. <strong><code>Create(TASK_TRIGGER_LOGON)</code></strong> create a Trigger. Theres a lot of trigger you can choosed daily, weekly or monthly...</li>
+        <li><strong><code>QueryInterface(IID_ILogonTrigger)</code></strong> create logon trigger so we can use some exclusive content of the logon trigger, then <strong><code>put_Id</code></strong> name the logon trigger and <strong><code>put_Enabled(TRUE)</code></strong> ENALBED logon.</li>
+        <li><strong><code>get_Actions</code></strong> create Action Lists. <strong><code>Create(TASK_ACTION_EXEC)</code></strong> create an action, then <strong><code>QueryInterface(IID_IExecAction)</code></strong> create a Exec_Action.</li>
+        <li><strong><code>put_Path</code></strong> put the path of the <strong><code>notepad.exe</code></strong>.</li>
+        <li>When you are doing all of these. The changes will stay on RAM until you <strong><code>RegisterTaskDefinition</code></strong>. It will create the task.</li>
+    </ul>
+
+    <pre><code class ="codeblock">
 #include &lt;Windows.h&gt;
 #include &lt;comdef.h&gt;
 #include &lt;taskschd.h&gt;
@@ -91,175 +107,60 @@ int main() {
     int exitCode = 0;
     bool comInitialized = false;
 
-    LPCWSTR task_name = L"Create Notepad";
-    ITaskService* service_pointer = NULL;
-    ITaskFolder* folder_pointer = NULL;
-    ITaskDefinition* definition_pointer = NULL;
-    IRegistrationInfo* registration_info_pointer = NULL;
-    IPrincipal* principal_pointer = NULL;
-    ITaskSettings* settings_pointer = NULL;
-    ITriggerCollection* trigger_collection_pointer = NULL;
-    ITrigger* trigger_pointer = NULL;
-    ILogonTrigger* logon_trigger_pointer = NULL;
-    IActionCollection* action_collection_pointer = NULL;
-    IAction* action_pointer = NULL;
-    IExecAction* exec_action_pointer = NULL;
-    IRegisteredTask* registered_task_pointer = NULL;
+    ...
 
-    result = CoInitializeEx(NULL, COINIT_MULTITHREADED); // What do we need is COM enviroment first
-    if (result != S_OK) {
-        printf("\n FAILED to initial COM");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     comInitialized = true;
 
-    result = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (VOID**)&amp;service_pointer); // And then create Instance for the IID_ITaskService which includes all the services we need.
-    if (result != S_OK) {
-        printf("\n FAILED to Create Instance");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (VOID**)&amp;service_pointer);
 
-    //Connect to the task scheduler
-    result = service_pointer-&gt;Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t()); // variant_t() create a NULL variant
-    if (result != S_OK) {
-        printf("\nFAILED TO CONNECT TASK SCHEDULER");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = service_pointer-&gt;Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
     printf("\nConnected successfully!");
 
-    result = service_pointer-&gt;GetFolder(_bstr_t(L"\\"), &amp;folder_pointer); // we need to get a folder to create a task. You can use different folder
-    if (result != S_OK) {
-        printf("\nFAILED TO GET ROOT FOLDER");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = service_pointer-&gt;GetFolder(_bstr_t(L"\\"), &amp;folder_pointer);
 
-    result = service_pointer-&gt;NewTask(0, &amp;definition_pointer); // Create the Definition Pointer has all the settings to create a task.
-    if (result != S_OK) {
-        printf("\nFAILED TO CREATE NEW TASK");
-        exitCode = 1;
-        goto Cleanup;
-    }
-    service_pointer-&gt;Release(); // No Longer need.
+    result = service_pointer-&gt;NewTask(0, &amp;definition_pointer);
+    service_pointer-&gt;Release();
     service_pointer = NULL;
 
-    result = definition_pointer-&gt;get_RegistrationInfo(&amp;registration_info_pointer); // RegistrationInfo for the AUTHOR
-    if (result != S_OK) {
-        printf("\nFAILED TO GET REGISTRATION INFO");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = definition_pointer-&gt;get_RegistrationInfo(&amp;registration_info_pointer);
 
     result = registration_info_pointer-&gt;put_Author(_bstr_t(L"VUAX"));
-    if (result != S_OK) {
-        printf("\nFAILED TO SET AUTHOR");
-        exitCode = 1;
-        goto Cleanup;
-    }
 
-    result = definition_pointer-&gt;get_Principal(&amp;principal_pointer); // Principle for the security context and privileges
-    if (result != S_OK) {
-        printf("\nFAILED TO GET PRINCIPAL");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = definition_pointer-&gt;get_Principal(&amp;principal_pointer);
 
-    result = principal_pointer-&gt;put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN); // run as the user just logged on the computer
-    if (result != S_OK) {
-        printf("\nFAILED TO SET LOGON TYPE");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = principal_pointer-&gt;put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
 
     result = definition_pointer-&gt;get_Settings(&amp;settings_pointer);
-    if (result != S_OK) {
-        printf("\nFAILED TO GET SETTINGS");
-        exitCode = 1;
-        goto Cleanup;
-    }
 
-    result = settings_pointer-&gt;put_StartWhenAvailable(VARIANT_TRUE);// The condition to run the code. You can choose to run only when the computer is idle.
-    if (result != S_OK) {
-        printf("\nFAILED TO SET START WHEN AVAILABLE");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = settings_pointer-&gt;put_StartWhenAvailable(VARIANT_TRUE);
     settings_pointer-&gt;Release();
     settings_pointer = NULL;
 
-    result = definition_pointer-&gt;get_Triggers(&amp;trigger_collection_pointer); // Trigger lists
-    if (result != S_OK) {
-        printf("\nFAILED TO GET TRIGGER COLLECTION");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = definition_pointer-&gt;get_Triggers(&amp;trigger_collection_pointer);
 
-    result = trigger_collection_pointer-&gt;Create(TASK_TRIGGER_LOGON, &amp;trigger_pointer); // Create a Trigger. Theres a lot of trigger you can choosed daily, weekly or monthly...)
-    if (result != S_OK) {
-        printf("\nFAILED TO CREATE TRIGGER");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = trigger_collection_pointer-&gt;Create(TASK_TRIGGER_LOGON, &amp;trigger_pointer);
     trigger_collection_pointer-&gt;Release();
     trigger_collection_pointer = NULL;
 
-    result = trigger_pointer-&gt;QueryInterface(IID_ILogonTrigger, (VOID**)&amp;logon_trigger_pointer); // Create logon trigger so we can use some exclusive content of the logon trigger.
-    if (result != S_OK) {
-        printf("\nFAILED TO QUERY ILogonTrigger");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = trigger_pointer-&gt;QueryInterface(IID_ILogonTrigger, (VOID**)&amp;logon_trigger_pointer);
     trigger_pointer-&gt;Release();
     trigger_pointer = NULL;
 
-    result = logon_trigger_pointer-&gt;put_Id(_bstr_t(L"LogonTriggerId"));// Name the logon trigger
-    if (result != S_OK) {
-        printf("\nFAILED TO SET TRIGGER ID");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = logon_trigger_pointer-&gt;put_Id(_bstr_t(L"LogonTriggerId"));
 
-    result = logon_trigger_pointer-&gt;put_Enabled(TRUE); // ENALBED logon
-    if (result != S_OK) {
-        printf("\nFAILED TO ENABLE TRIGGER");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = logon_trigger_pointer-&gt;put_Enabled(TRUE);
     logon_trigger_pointer-&gt;Release();
     logon_trigger_pointer = NULL;
 
-    result = definition_pointer-&gt;get_Actions(&amp;action_collection_pointer);// Create Action Lists
-    if (result != S_OK) {
-        printf("\nFAILED TO GET ACTION COLLECTION");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = definition_pointer-&gt;get_Actions(&amp;action_collection_pointer);
 
-    result = action_collection_pointer-&gt;Create(TASK_ACTION_EXEC, &amp;action_pointer);// Create an action
-    if (result != S_OK) {
-        printf("\nFAILED TO CREATE ACTION");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = action_collection_pointer-&gt;Create(TASK_ACTION_EXEC, &amp;action_pointer);
 
-    result = action_pointer-&gt;QueryInterface(IID_IExecAction, (VOID**)&amp;exec_action_pointer);// Create a Exec_Action
-    if (result != S_OK) {
-        printf("\nFAILED TO QUERY IExecAction");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = action_pointer-&gt;QueryInterface(IID_IExecAction, (VOID**)&amp;exec_action_pointer);
 
-    result = exec_action_pointer-&gt;put_Path(_bstr_t(L"C:\\Windows\\system32\\notepad.exe"));// put the path of the notepad.exe
-    if (result != S_OK) {
-        printf("\nFAILED TO SET EXEC PATH");
-        exitCode = 1;
-        goto Cleanup;
-    }
+    result = exec_action_pointer-&gt;put_Path(_bstr_t(L"C:\\Windows\\system32\\notepad.exe"));
 
-    // When you are doing all of these. The changes will stay on RAM until you RegisterTaskDefinition. It will create the task.
     result = folder_pointer-&gt;RegisterTaskDefinition(
         _bstr_t(L"\\MyTasks\\OpenNotepad"),
         definition_pointer,
@@ -268,39 +169,17 @@ int main() {
         TASK_LOGON_INTERACTIVE_TOKEN,
         _variant_t(L""),
         &amp;registered_task_pointer);
-    if (result != S_OK) {
-        printf("\nFAILED TO REGISTER TASK");
-        exitCode = 1;
-        goto Cleanup;
-    }
 
     printf("\nTask registered successfully.");
 
-Cleanup:
-    if (registered_task_pointer) registered_task_pointer-&gt;Release();
-    if (exec_action_pointer) exec_action_pointer-&gt;Release();
-    if (action_pointer) action_pointer-&gt;Release();
-    if (action_collection_pointer) action_collection_pointer-&gt;Release();
-    if (logon_trigger_pointer) logon_trigger_pointer-&gt;Release();
-    if (trigger_pointer) trigger_pointer-&gt;Release();
-    if (trigger_collection_pointer) trigger_collection_pointer-&gt;Release();
-    if (settings_pointer) settings_pointer-&gt;Release();
-    if (principal_pointer) principal_pointer-&gt;Release();
-    if (registration_info_pointer) registration_info_pointer-&gt;Release();
-    if (definition_pointer) definition_pointer-&gt;Release();
-    if (folder_pointer) folder_pointer-&gt;Release();
-    if (service_pointer) service_pointer-&gt;Release();
-
-    if (comInitialized) {
-        CoUninitialize();
-    }
+    ...
 
     return exitCode;
 }
 </code></pre>
 <img src="IMAGES/Task Scheduler/Task.png" alt="Task">
     <p>You can compile this example with <code>cl.exe</code> (linking against <code>taskschd.lib</code>) and run the executable. After it succeeds, check Task Scheduler to see the new task under <code>MyTasks\OpenNotepad</code>, and log off / log on to see Notepad start automatically.</p>
-
+    <a href="SourceCode/SourceTaskScheduler.html">SourceCode</a>
     <p>→ That’s all for this Task Scheduler overview. See you in the next blog.</p>
 </body>
 </html>

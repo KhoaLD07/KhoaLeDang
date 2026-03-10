@@ -1,0 +1,108 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Function Finder Source Code</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../FunctionFinder.html">Go back to FunctionFinder</a>
+    </p>
+<pre class ="codeblock"><code class ="codeblock">#include &lt;Windows.h&gt;
+#include &lt;winternl.h&gt;
+#include &lt;stdio.h&gt;
+
+typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    PVOID Reserved1[2];
+    LIST_ENTRY InMemoryOrderLinks;
+    PVOID Reserved2[2];
+    PVOID DllBase;
+    PVOID Reserved3[2];
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    PVOID Reserved5[2];
+#pragma warning(push)
+#pragma warning(disable: 4201)
+    union {
+        ULONG CheckSum;
+        PVOID Reserved6;
+    } DUMMYUNIONNAME;
+#pragma warning(pop)
+    ULONG TimeDateStamp;
+} LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;
+
+BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
+    if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE;
+    PIMAGE_NT_HEADERS nt =
+        (PIMAGE_NT_HEADERS)((BYTE*)dllBase + dos-&gt;e_lfanew);
+
+    if (nt-&gt;Signature != IMAGE_NT_SIGNATURE) return FALSE;
+    DWORD exportRVA =
+        nt-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    
+    if (!exportRVA) return FALSE;
+    PIMAGE_EXPORT_DIRECTORY exp =
+        (PIMAGE_EXPORT_DIRECTORY)((BYTE*)dllBase + exportRVA);
+
+    DWORD* names = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfNames);
+    DWORD* funcs = (DWORD*)((BYTE*)dllBase + exp-&gt;AddressOfFunctions);
+    WORD* ords = (WORD*)((BYTE*)dllBase + exp-&gt;AddressOfNameOrdinals);
+
+    for (DWORD i = 0; i &lt; exp-&gt;NumberOfNames; i++) {
+        char* name = (char*)((BYTE*)dllBase + names[i]);
+        if (strcmp(name, fnName) == 0) {
+            void* fnAddr = (BYTE*)dllBase + funcs[ords[i]];
+            printf("Found %-20s \n", fnName);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void FindFunctionInProcess(const char* fnName) {
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    PPEB_LDR_DATA ldr = peb-&gt;Ldr;
+
+    LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
+    LIST_ENTRY* curr = head-&gt;Flink;
+
+    while (curr != head) {
+        PLDR_DATA_TABLE_ENTRY_CUSTOM entry =
+            CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+
+        if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
+            if (SearchFunctionInDll(entry-&gt;DllBase, fnName)) {
+                wprintf(L"-&gt; DLL: %s\n", entry-&gt;BaseDllName.Buffer);
+                return;
+            }
+        }
+        curr = curr-&gt;Flink;
+    }
+    printf("Function not found: %s\n", fnName);
+}
+
+int main() {
+    char fnName[128];
+
+    LoadLibraryA("user32.dll");
+
+    while (1) {
+        printf("\nEnter function name (or exit): ");
+        scanf_s("%127s", fnName, (unsigned)_countof(fnName));
+
+        if (strcmp(fnName, "exit") == 0) {
+            break; 
+        }
+
+        FindFunctionInProcess(fnName);
+    }
+
+    return 0;
+}</code></pre>
+</body>
+</html>
