@@ -48,7 +48,7 @@ extern "C" void entry_point() {
 	...</code></pre>
 
     <p class="mynote">
-        I create an array to hold string instead of "user32.dll" because when you do this it will a pointer that points to HEAP memory .rdata. But in shellcode injection we need all the codes inside .text to convert it into shellcode.
+        I create an array to hold string instead of "user32.dll" because when you do this it will give you a pointer that points to HEAP memory .rdata. But in shellcode injection we need all the codes inside .text to convert it into shellcode.
     </p>
 
     <p class="mynote">In asm it will mov bytes by bytes until the end so our string doesn't appear inside .rdata:</p>
