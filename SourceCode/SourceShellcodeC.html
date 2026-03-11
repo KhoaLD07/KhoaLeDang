@@ -1,0 +1,133 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shellcode C Source Code</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../index.html">Go back</a>
+    </p>
+<pre class="codeblock"><code class="codeblock">#include &lt;windows.h&gt;
+#include &lt;winternl.h&gt;
+
+typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+	PVOID Reserved1[2];
+	LIST_ENTRY InMemoryOrderLinks;
+	PVOID Reserved2[2];
+	PVOID DllBase;
+	PVOID Reserved3[2];
+	UNICODE_STRING FullDllName;
+	UNICODE_STRING BaseDllName;
+	PVOID Reserved5[2];
+#pragma warning(push)
+#pragma warning(disable: 4201) 
+	union {
+		ULONG CheckSum;
+		PVOID Reserved6;
+	} DUMMYUNIONNAME;
+#pragma warning(pop)
+	ULONG TimeDateStamp;
+} LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;
+#pragma optimize("", off)
+extern "C" void entry_point() {
+	decltype(MessageBoxA)* pMessageBoxA = NULL;
+	decltype(GetProcAddress)* pGetProcAddress = NULL;
+	decltype(LoadLibraryA)* pLoadLibraryA = NULL;
+	decltype(ExitThread)* pExitThread = NULL;
+	char u32[11] = { 'u', 's', 'e', 'r', '3', '2', '.', 'd', 'l', 'l', '\0' };
+	char alert[7] = { 'A', 'l', 'e', 'r', 't', '!', '\0' };
+	char msg[23] = { 'M', 'e', 's', 's', 'a', 'g', 'e', ' ', 'B', 'o', 'x', ' ', 'i', 's', ' ', 'w', 'o', 'r', 'k', 'i', 'n', 'g', '\0' };
+	char msgbox_name[12] = { 'M', 'e', 's', 's', 'a', 'g', 'e', 'B', 'o', 'x', 'A', '\0' };
+	WCHAR k32[13] = { 'K', 'E', 'R', 'N', 'E', 'L', '3', '2', '.', 'D', 'L', 'L', '\0' };
+	char get_proc_address[15] = { 'G', 'e', 't', 'P', 'r', 'o', 'c', 'A', 'd', 'd', 'r', 'e', 's', 's', '\0' };
+	char load_library_a[13] = { 'L', 'o', 'a', 'd', 'L', 'i', 'b', 'r', 'a', 'r', 'y', 'A', '\0' };
+	char exit_thread_name[11] = { 'E', 'x', 'i', 't', 'T', 'h', 'r', 'e', 'a', 'd', '\0' };
+
+	void* kernel32_base = NULL;
+	PPEB peb = (PPEB)__readgsqword(0x60);
+	PPEB_LDR_DATA loader = peb-&gt;Ldr;
+	LIST_ENTRY* head = &amp;loader-&gt;InMemoryOrderModuleList;
+	LIST_ENTRY* current = head-&gt;Flink;
+
+	while (current != head) {
+		PLDR_DATA_TABLE_ENTRY_CUSTOM entry = CONTAINING_RECORD(current, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+		if (entry-&gt;DllBase &amp;&amp; entry-&gt;BaseDllName.Buffer) {
+			BOOL match = TRUE;
+			size_t i = 0;
+			for (i = 0; entry-&gt;BaseDllName.Buffer[i] != '\0'; i++) {
+				if (entry-&gt;BaseDllName.Buffer[i] != k32[i]) {
+					match = FALSE;
+					break;
+				}
+			}
+			if (k32[i] != '\0') match = FALSE;
+
+			if (match) {
+				kernel32_base = entry-&gt;DllBase;
+				break;
+			}
+		}
+		current = current-&gt;Flink;
+	}
+
+	if (kernel32_base != NULL) {
+		PIMAGE_DOS_HEADER dos_header = (PIMAGE_DOS_HEADER)kernel32_base;
+		PIMAGE_NT_HEADERS nt_header = (PIMAGE_NT_HEADERS)((BYTE*)kernel32_base + dos_header-&gt;e_lfanew);
+		DWORD exportRVA = nt_header-&gt;OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+		PIMAGE_EXPORT_DIRECTORY export_directory = (PIMAGE_EXPORT_DIRECTORY)((BYTE*)kernel32_base + exportRVA);
+
+		DWORD* names = (DWORD*)((BYTE*)kernel32_base + export_directory-&gt;AddressOfNames);
+		DWORD* funcs = (DWORD*)((BYTE*)kernel32_base + export_directory-&gt;AddressOfFunctions);
+		WORD* ordinals = (WORD*)((BYTE*)kernel32_base + export_directory-&gt;AddressOfNameOrdinals);
+
+		for (size_t i = 0; i &lt; export_directory-&gt;NumberOfNames; i++) {
+			char* name = (char*)((BYTE*)kernel32_base + names[i]);
+
+			BOOL match_gpa = TRUE;
+			size_t j = 0;
+			for (j = 0; get_proc_address[j] != '\0'; j++) {
+				if (get_proc_address[j] != name[j]) { match_gpa = FALSE; break; }
+			}
+			if (name[j] != '\0') match_gpa = FALSE;
+			if (match_gpa) pGetProcAddress = (decltype(GetProcAddress)*)((BYTE*)kernel32_base + funcs[ordinals[i]]);
+
+			BOOL match_lla = TRUE;
+			for (j = 0; load_library_a[j] != '\0'; j++) {
+				if (load_library_a[j] != name[j]) { match_lla = FALSE; break; }
+			}
+			if (name[j] != '\0') match_lla = FALSE;
+			if (match_lla) pLoadLibraryA = (decltype(LoadLibraryA)*)((BYTE*)kernel32_base + funcs[ordinals[i]]);
+
+			BOOL match_et = TRUE;
+			for (j = 0; exit_thread_name[j] != '\0'; j++) {
+				if (exit_thread_name[j] != name[j]) { match_et = FALSE; break; }
+			}
+			if (name[j] != '\0') match_et = FALSE;
+			if (match_et) pExitThread = (decltype(ExitThread)*)((BYTE*)kernel32_base + funcs[ordinals[i]]);
+		}
+	}
+
+	if (pLoadLibraryA != NULL &amp;&amp; pGetProcAddress != NULL) {
+		HMODULE user32_dll = pLoadLibraryA(u32);
+		pMessageBoxA = (decltype(MessageBoxA)*)pGetProcAddress(user32_dll, msgbox_name);
+		if (pMessageBoxA != NULL) {
+			pMessageBoxA(NULL, alert, msg, MB_OK);
+		}
+	}
+
+	if (pExitThread != NULL) {
+		pExitThread(0);
+	}
+}
+
+int main() {
+	entry_point();
+	return 0;
+}</code></pre>
+</body>
+</html>
