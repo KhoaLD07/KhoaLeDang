@@ -21,10 +21,10 @@
         <li>Team Server: The center command server. It listens for incoming connections from <code class="inlinecode">beacon</code>, stores all the stolen data, manage
 all the clients and serves payload to <code class="inlinecode">beacon</code> on victim machine.</li>
         <li>Client: Will connect to the <code class="inlinecode">teamserver</code>. Many clients can connect to the server and interact with each other on real
-time.For example: One person can Elevate Privileges, The others can extract information.</li>
-        <li>Beacon: The core payload executed on the victim computer. It only operates asychronoulsy, it sleeps for a period of time, wakes up contact
+time. For example: One person can Elevate Privileges, The others can extract information.</li>
+        <li>Beacon: The core payload executed on the victim computer. It operates asychronoulsy, it sleeps for a period of time, wakes up contact
 with the team server to see if there's any new task. If there's nothing it will continue to sleep.
-This makes it harder to spot it. Beacon can transfer through many route: <code class="inlinecode">HTTP/HTTPS</code>, <code class="inlinecode">DNS</code>, <code class="inlinecode">SMB</code>.</li>
+This makes it harder to spot. Beacon can transfer through many route: <code class="inlinecode">HTTP/HTTPS</code>, <code class="inlinecode">DNS</code>, <code class="inlinecode">SMB</code>.</li>
         <li>Malleable C2: Firewalls nowadays are very smart it blocks a <code class="inlinecode">.exe</code> spotanously send encrypted data through a suspicious IP address.
 Malleable helps create configs, these configs will put the data inside fake HTML tags, So it will look like just a normal connection.</li>
     </ul>
@@ -55,8 +55,8 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         then port I'll choose 80, save. Then choose your listener. Finally generate a beacon.<br>
         When to client open the <code class="inlinecode">beacon.exe</code> you should receive connection.
     </p>
-    <img src="images/CobaltStrike/listener.png" alt="Cobalt Strike">
-    <img src="images/CobaltStrike/beacon_payload.png" alt="Cobalt Strike">
+    <img src="IMAGES/CobaltStrike/listener.png" alt="Cobalt Strike">
+    <img src="IMAGES/CobaltStrike/beacon_payload.png" alt="Cobalt Strike">
     <p class="mynote">
         On the host machine right click on the client then choose interact to do some malicious stuff.<br>
         for example: <code class="inlinecode">screenshot</code> to screenshot client screen.<br>
@@ -226,9 +226,9 @@ beacon_inline_execute($1, $data, "go", $args);
         </ul>
     </div>
     <p class="mynote">To use the CNA you'll need to load it. By going to scripts tab and click on load.</p>
-    <img src="images/CobaltStrike/load_cna.png" alt="Cobalt Strike">
+    <img src="IMAGES/CobaltStrike/load_cna.png" alt="Cobalt Strike">
     <p class="mynote">Here's the test result:</p>
-    <img src="images/CobaltStrike/test_result.png" alt="Cobalt Strike">
+    <img src="IMAGES/CobaltStrike/test_result.png" alt="Cobalt Strike">
     <p class="mynote">That's it for today see you in the next blog. For more details you can check the <a href="SourceCode/SourceCNA.html">Source CNA</a>.</p>
 </body>
 </html>

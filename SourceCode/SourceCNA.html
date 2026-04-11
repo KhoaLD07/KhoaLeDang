@@ -50,19 +50,44 @@
     <h2>Aggressor CNA:</h2>
 
     <pre class="codeblock"><code class="codeblock">alias -ls {
-    local('$barch $handle $data $args');
-    if (size(@_) != 2) {
-        berror($1, "How to use: -ls [path]");
-        return;
-    }
-    $barch  = barch($1);
-    $handle = openf(script_resource("BOF2. $+ $barch $+ .obj"));
-    $data   = readb($handle, -1);
-    closef($handle);
-
-    $args = bof_pack($1, "z", $2);
-    btask($1, "Sending to Beacon...");
-    beacon_inline_execute($1, $data, "go", $args);
-}</code></pre>
+		local('$barch $handle $data $args $target_dir $bof_path');
+	
+		if (size(@_) != 2) {
+			berror($1, "How to use: -ls [path]");
+			return;
+		}
+		
+		$target_dir = $2;
+	
+		if (strlen($target_dir) == 0) {
+			berror($1, "Path cannot be empty");
+			return;
+		}
+	
+		if (![$target_dir endsWith: "*"]) {
+			if ([$target_dir endsWith: "\\"] || [$target_dir endsWith: "/"]) {
+				$target_dir = $target_dir . "*";
+			} else {
+				$target_dir = $target_dir . "\\*";
+			}
+		}
+	
+		$barch = barch($1);
+		$bof_path = script_resource("BOF2." . $barch . ".obj");
+	
+		if (!-exists $bof_path) {
+			berror($1, "BOF not found: " . $bof_path);
+			return;
+		}
+	
+		$handle = openf($bof_path);
+		$data   = readb($handle, -1);
+		closef($handle);
+	
+		$args = bof_pack($1, "z", $target_dir);
+	
+		btask($1, "Sending to Beacon... Path: " . $target_dir);
+		beacon_inline_execute($1, $data, "go", $args);
+	}</code></pre>
 </body>
 </html>
