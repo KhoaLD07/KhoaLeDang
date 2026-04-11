@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Source CNA — BOF &amp; Aggressor</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">SOURCE CNA</h1>
+    <h1 style="font-size: 20;">TOPIC: BEACONOBJECTFILE AND CNA</h1>
+
+    <h2>Beacon Object File:</h2>
+
+    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
+	datap data;
+	WIN32_FIND_DATAA file_data;
+	HANDLE file_handle = NULL;
+	formatp out_buffer;
+	char* target_dir = NULL;
+	int length = 0;
+	BeaconDataParse(&amp;data, buff, len);
+	
+	target_dir = BeaconDataExtract(&amp;data, &amp;length);
+	int out_size = 0;
+	BeaconFormatAlloc(&amp;out_buffer, 8192);
+	file_handle = FindFirstFileA(target_dir, &amp;file_data);
+	if (file_handle == INVALID_HANDLE_VALUE)
+	{
+		BeaconPrintf(CALLBACK_ERROR, "FAILED TO FIND FIRST FILE\n");
+		BeaconFormatFree(&amp;out_buffer);
+		return;
+	}
+	BeaconFormatPrintf(&amp;out_buffer, "---List---\n");
+	do
+	{
+		BeaconFormatPrintf(&amp;out_buffer, "%s\n", file_data.cFileName);
+	} while (FindNextFileA(file_handle, &amp;file_data) != 0);
+
+	char* final_output = BeaconFormatToString(&amp;out_buffer, &amp;out_size);
+	BeaconPrintf(CALLBACK_OUTPUT, "%s\n", final_output);
+	FindClose(file_handle);
+	BeaconFormatFree(&amp;out_buffer);
+	return;
+}</code></pre>
+
+    <h2>Aggressor CNA:</h2>
+
+    <pre class="codeblock"><code class="codeblock">alias -ls {
+    local('$barch $handle $data $args');
+    if (size(@_) != 2) {
+        berror($1, "How to use: -ls [path]");
+        return;
+    }
+    $barch  = barch($1);
+    $handle = openf(script_resource("BOF2. $+ $barch $+ .obj"));
+    $data   = readb($handle, -1);
+    closef($handle);
+
+    $args = bof_pack($1, "z", $2);
+    btask($1, "Sending to Beacon...");
+    beacon_inline_execute($1, $data, "go", $args);
+}</code></pre>
+</body>
+</html>

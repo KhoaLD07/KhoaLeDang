@@ -76,27 +76,27 @@ mov     [rsp+198h+var_126], 0
         <li>
             <strong>C/C++ &rarr; Optimization</strong>
             <ul>
-                <li><strong>Optimization</strong>: choose <code>Maximize speed (/O2)</code> – helps the code execute faster, but most importantly turns off runtime tests.</li>
-                <li><strong>Whole Program Optimization</strong>: choose <code>No</code> – prevents the compiler from stacking functions together.</li>
+                <li><strong>Optimization</strong>: choose <code class="inlinecode">Maximize speed (/O2)</code> – helps the code execute faster, but most importantly turns off runtime tests.</li>
+                <li><strong>Whole Program Optimization</strong>: choose <code class="inlinecode">No</code> – prevents the compiler from stacking functions together.</li>
             </ul>
         </li>
         <li>
             <strong>C/C++ &rarr; Code Generation</strong>
             <ul>
-                <li><strong>Security check</strong>: set to <code>Disable Security Check (/GS-)</code> – removes the <code>__security_cookie</code>. If left enabled, shellcode may call a nonexistent function and crash.</li>
-                <li><strong>Basic Runtime Checks</strong>: set to <code>Default</code> – turns off <code>/RTC1</code>; stops the compiler from checking the C library stack (which doesn't exist for standalone shellcode).</li>
+                <li><strong>Security check</strong>: set to <code class="inlinecode">Disable Security Check (/GS-)</code> – removes the <code class="inlinecode">__security_cookie</code>. If left enabled, shellcode may call a nonexistent function and crash.</li>
+                <li><strong>Basic Runtime Checks</strong>: set to <code class="inlinecode">Default</code> – turns off <code class="inlinecode">/RTC1</code>; stops the compiler from checking the C library stack (which doesn't exist for standalone shellcode).</li>
             </ul>
         </li>
         <li>
             <strong>Linker &rarr; Input</strong>
             <ul>
-                <li><strong>Ignore All Default Libraries</strong>: set to <code>Yes (/NODEFAULTLIB)</code> – removes the CRT, making sure your shellcode doesn't call any library functions except yours.</li>
+                <li><strong>Ignore All Default Libraries</strong>: set to <code class="inlinecode">Yes (/NODEFAULTLIB)</code> – removes the CRT, making sure your shellcode doesn't call any library functions except yours.</li>
             </ul>
         </li>
         <li>
             <strong>Linker &rarr; Advanced</strong>
             <ul>
-                <li><strong>Entry Point</strong>: enter your entry function name – tells the linker which function is the entry point when dumping the <code>.text</code> section. Assembly will start from this function.</li>
+                <li><strong>Entry Point</strong>: enter your entry function name – tells the linker which function is the entry point when dumping the <code class="inlinecode">.text</code> section. Assembly will start from this function.</li>
             </ul>
         </li>
     </ul>
@@ -165,10 +165,10 @@ int main() {
 </code></pre>
 <p class="mynote">
     To inject into a process, you need your <strong>shellcode</strong>, a target location, and memory for the shellcode. 
-    First, obtain shellcode bytes from HxD. Open the target process with <code>OpenProcess(..., PID)</code>.
-    Use <code>VirtualAllocEx()</code> to allocate space inside the target process. 
-    Use <code>WriteProcessMemory()</code> to copy your shellcode. 
-    Finally, create a thread to run your code via <code>CreateRemoteThread(exec_mem)</code>.
+    First, obtain shellcode bytes from HxD. Open the target process with <code class="inlinecode">OpenProcess(..., PID)</code>.
+    Use <code class="inlinecode">VirtualAllocEx()</code> to allocate space inside the target process. 
+    Use <code class="inlinecode">WriteProcessMemory()</code> to copy your shellcode. 
+    Finally, create a thread to run your code via <code class="inlinecode">CreateRemoteThread(exec_mem)</code>.
 </p>
 <a href="SourceCode/SourceInjector.html">Injector Source Code</a>
 <p class="mynote">

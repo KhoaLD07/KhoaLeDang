@@ -80,6 +80,22 @@ pre.codeblock {
     color: inherit;
 }
 
+/* Block code: don't apply global `code` chip styling inside pre.codeblock */
+pre.codeblock code.codeblock {
+    display: block;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+    border-radius: 0;
+}
+
+.mynote code,
+.tip code,
+.warning code {
+    font-size: 0.95em;
+}
+
 table {
     font-size: 14px;
     margin-left: auto;

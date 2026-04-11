@@ -241,10 +241,10 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
             </ul>
         </li>
         <li>
-            <code>D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)</code> &mdash; System rule
+            <code class="inlinecode">D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)</code> &mdash; System rule
         </li>
         <li>
-            <code>(A;;CCLCSWLOCRRCWD;;;BA)</code> &mdash; Built-in Administrator
+            <code class="inlinecode">(A;;CCLCSWLOCRRCWD;;;BA)</code> &mdash; Built-in Administrator
         </li>
         <li>
             <strong>Explanation of SDDL format:</strong>
@@ -264,7 +264,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
                 <li><strong>WP</strong> (Service_Stop): allowed to stop the service</li>
                 <li><strong>DT</strong> (Service_Pause_Continue): allowed to pause or resume the service</li>
                 <li><strong>LO</strong> (Service_Interrogate): allowed to send a signal requesting a status report</li>
-                <li><strong>CR</strong> (Service_User_Defined_Control): allowed to send custom control codes (e.g., in <code>service_ctrl_handler</code>)</li>
+                <li><strong>CR</strong> (Service_User_Defined_Control): allowed to send custom control codes (e.g., in <code class="inlinecode">service_ctrl_handler</code>)</li>
                 <li><strong>RC</strong> (Read_Control): see Discretionary Access Control List (DACL)
                     <ul>
                         <li>
@@ -294,7 +294,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         <li>
             <strong>To unprotect the service:</strong>
             <ul>
-                <li>Change the SDDL string into <code>D:(A;;CCLCSWRPWPDTLOCRRCWDSD;;;BA)</code> to give full access back to administrators.</li>
+                <li>Change the SDDL string into <code class="inlinecode">D:(A;;CCLCSWRPWPDTLOCRRCWDSD;;;BA)</code> to give full access back to administrators.</li>
             </ul>
         </li>
     </ul>
