@@ -55,7 +55,8 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         then port I'll choose 80, save. Then choose your listener. Finally generate a beacon.<br>
         When to client open the <code class="inlinecode">beacon.exe</code> you should receive connection.
     </p>
-
+    <img src="images/CobaltStrike/listener.png" alt="Cobalt Strike">
+    <img src="images/CobaltStrike/beacon_payload.png" alt="Cobalt Strike">
     <p class="mynote">
         On the host machine right click on the client then choose interact to do some malicious stuff.<br>
         for example: <code class="inlinecode">screenshot</code> to screenshot client screen.<br>
@@ -224,6 +225,10 @@ beacon_inline_execute($1, $data, "go", $args);
             <li><strong>OPSEC RULE:</strong> Never ask for <code class="inlinecode">RWX</code> (Read-Write-Execute) at the same time. EDRs will catch you. Always allocate <code class="inlinecode">RW</code> (Read-Write) → Copy code → <code class="inlinecode">VirtualProtect</code> to <code class="inlinecode">RX</code> (Read-Execute) → Run.</li>
         </ul>
     </div>
-    <p class="mynote">That's our CNA: <a href="SourceCode/SourceCNA.html">Source CNA</a>.</p>
+    <p class="mynote">To use the CNA you'll need to load it. By going to scripts tab and click on load.</p>
+    <img src="images/CobaltStrike/load_cna.png" alt="Cobalt Strike">
+    <p class="mynote">Here's the test result:</p>
+    <img src="images/CobaltStrike/test_result.png" alt="Cobalt Strike">
+    <p class="mynote">That's it for today see you in the next blog. For more details you can check the <a href="SourceCode/SourceCNA.html">Source CNA</a>.</p>
 </body>
 </html>
