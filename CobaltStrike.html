@@ -170,6 +170,68 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
     BeaconFormatFree(&amp;out_buffer);
     return;
 }</code></pre>
+
+    <h2>Declaring APIs in BOF</h2>
+
+    <p class="mynote">
+        I write some simple codes about how to change, list, remove, create file and directory. It's basically the same in C. The only differences are you have to resolve the functions because BOF doesn't have a linker.<br><br>
+        But remember to declare APIs you are using or it won't work.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">DECLSPEC_IMPORT BOOL WINAPI KERNEL32$CloseHandle(HANDLE);</code></pre>
+
+    <p class="mynote">
+        Here's how to declare one. I made a macro for shorter call:
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">#define CloseHandle KERNEL32$CloseHandle</code></pre>
+
+    <p class="mynote">
+        The rest will be the same, also don't forget the dll: <code class="inlinecode">KERNEL32$</code>. You can check <a href="function_finder.html">FunctionFinder</a> to find which dll is this API in.
+    </p>
+
+    <h2>Multi-mode go() Entry Point</h2>
+
+    <p class="mynote">
+        Here's a more advanced <code class="inlinecode">go()</code> function that supports multiple modes (ls, cd, mkdir, rm, etc.) dispatched from a single entry point.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
+    datap data;
+    int length = 0;
+    char curr_dir[MAX_PATH];
+    BeaconDataParse(&data, buff, len);
+    char* mode = BeaconDataExtract(&data, &length);
+
+    GetCurrentDirectoryA(MAX_PATH, curr_dir);
+    BeaconPrintf(CALLBACK_OUTPUT, "Current Directory: %s\n", curr_dir);
+
+    if (strcmp(mode, "ls") == 0) {
+        execute_ls(&data);
+    }
+    ...
+}</code></pre>
+
+    <p class="mynote">
+        <code class="inlinecode">mode</code> is the first extracted argument and controls which sub-function gets called. <code class="inlinecode">GetCurrentDirectoryA</code> prints the current working directory before dispatching.
+    </p>
+
+    <h2>execute_ls full example</h2>
+
+    <pre class="codeblock"><code class="codeblock">void execute_ls(datap* req_data) {
+    char* target_dir = BeaconDataExtract(req_data, &length);
+    BeaconFormatAlloc(&out_buffer, 8192);
+    file_handle = FindFirstFileA(target_dir, &file_data);
+    else {
+        BeaconFormatPrintf(&out_buffer, "---List---\n");
+        do {
+            BeaconFormatPrintf(&out_buffer, "%s\n", file_data.cFileName);
+        } while (FindNextFileA(file_handle, &file_data) != 0);
+    }
+    char* final_output = BeaconFormatToString(&out_buffer, &out_size);
+    BeaconFormatFree(&out_buffer);
+}</code></pre>
+
     <h2>CNA: Aggressor Script intergrated inside COBALT STRIKE using Sleep language</h2>
 
     <p class="mynote">
@@ -197,19 +259,26 @@ closef($handle);
         <ul style="margin: 8px 0;">
             <li><code class="inlinecode">$barch</code>: checks victim machine architecture (x86 or x64)</li>
             <li><code class="inlinecode">$handle = openf(...)</code>: open file using the arch</li>
-            <li><code class="inlinecode">$data = readb(...)</code>: read whole file into <code class="inlinecode">$data</code> (-1 = all)</li>
+            <li><code class="inlinecode">$data = readb(...)</code>: read whole file into <code class="inlinecode">$data</code> (-1 = all means read until EOF. If you put in 100 it will read the first 100 bytes)</li>
             <li><code class="inlinecode">closef($handle)</code>: close the handle</li>
+            <li><code class="inlinecode">script_resource()</code>: returns the full path from our cna script — it connects our file with the path. eg: <code class="inlinecode">$bof_path = "C:\Users\KingX\Documents\Test\BOF2.x86.obj"</code></li>
         </ul>
     </div>
     <pre class="codeblock"><code class="codeblock">$args = bof_pack($1, "z", $2);
 </code></pre>
     <div class="mynote">
         <ul style="margin: 8px 0;">
-            <li><code class="inlinecode">"Z"</code> is Wide String (UTF-16). Very important because many Win32 APIs require wide string (e.g. <code class="inlinecode">L"C:\\Windows"</code>). Extracts to: <code class="inlinecode">wchar_t* wstr = (wchar_t*)BeaconDataExtract(&amp;parser, &amp;len)</code></li>
-            <li><code class="inlinecode">z</code> = string, <code class="inlinecode">i</code> = integer, <code class="inlinecode">s</code> = short, <code class="inlinecode">b</code> = binary. You will need to provide an empty int to catch the string length.</li>
+            <li><code class="inlinecode">"Z"</code> is Wide String (UTF-16). The string will be added <code class="inlinecode">'\0'</code> in the end. Very important because many Win32 APIs require wide string (e.g. <code class="inlinecode">L"C:\\Windows"</code>). Extracts to: <code class="inlinecode">wchar_t* wstr = (wchar_t*)BeaconDataExtract(&amp;parser, &amp;len)</code></li>
+            <li><code class="inlinecode">z</code> = string (UTF-8), <code class="inlinecode">i</code> = integer, <code class="inlinecode">s</code> = short, <code class="inlinecode">b</code> = binary. You will need to provide an empty int to catch the string length.</li>
             <li><code class="inlinecode">bof_pack</code> will take arguments from your command line but you need to write the type of the arguments in order.<br>
-            Example: <code class="inlinecode">bof_pack($1, "iz", $2, $3)</code> means it will take the first argument as an integer, and the second as a string.</li>
-            <li><strong>IMPORTANT:</strong> you have to take the arguments from the pack in the same order too. In this example you need to take <code class="inlinecode">BeaconDataInt()</code> then <code class="inlinecode">BeaconDataExtract()</code>.</li>
+            Example: <code class="inlinecode">bof_pack($bid, "zzz", $mode, $target_dir, $file_type)</code> means pack three strings in order.</li>
+            <li><strong>IMPORTANT:</strong> you have to extract the arguments in the same order too:
+                <ol style="margin-top:6px;">
+                    <li><code class="inlinecode">mode = BeaconDataInt(&amp;data);</code></li>
+                    <li><code class="inlinecode">target_dir = BeaconDataExtract(&amp;data, &amp;length);</code></li>
+                    <li><code class="inlinecode">type = BeaconDataExtract(&amp;data, &amp;length);</code></li>
+                </ol>
+            </li>
         </ul>
     </div>
     <pre class="codeblock"><code class="codeblock">btask($1, "Sending to Beacon...");
@@ -225,6 +294,114 @@ beacon_inline_execute($1, $data, "go", $args);
             <li><strong>OPSEC RULE:</strong> Never ask for <code class="inlinecode">RWX</code> (Read-Write-Execute) at the same time. EDRs will catch you. Always allocate <code class="inlinecode">RW</code> (Read-Write) → Copy code → <code class="inlinecode">VirtualProtect</code> to <code class="inlinecode">RX</code> (Read-Execute) → Run.</li>
         </ul>
     </div>
+
+    <h2>Sleep Language: Variables and Comparisons</h2>
+
+    <p class="mynote">
+        <code class="inlinecode">sub</code> is subroutine, it's kinda similar to a normal function.<br>
+        <code class="inlinecode">Local('$mode, $target_dir, ..)</code> — this is how you declare variables. <code class="inlinecode">$</code> is for the variable, <code class="inlinecode">@</code> is for array. To dereference an array: <code class="inlinecode">@example[0]</code>, similar to other languages.
+    </p>
+
+    <p class="mynote">
+        There are 3 comparison types:
+    </p>
+
+    <ul>
+        <li><code class="inlinecode">==; &lt;; &gt;=; ...</code> — This is for <strong>numbers</strong></li>
+        <li><code class="inlinecode">eq; ne</code> — equal and not equal. This is for <strong>strings</strong>.</li>
+        <li><code class="inlinecode">iswm</code> — Is Wildcard Matching. This is pattern matching, it finds a string inside a larger string.
+            <ul>
+                <li><code class="inlinecode">*</code> represents any string, <code class="inlinecode">?</code> represents 1 character.</li>
+                <li>Example: <code class="inlinecode">if ("*[abc]*" iswm $out)</code> — finds <code class="inlinecode">[abc]</code> anywhere in the string.</li>
+                <li><code class="inlinecode">"*[abc]"</code> — this means <code class="inlinecode">[abc]</code> is at the end of the string.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>Positional Parameters</h2>
+
+    <p class="mynote">
+        <strong>(alias)</strong> Eg: <code class="inlinecode">-zaza ls "*"</code>
+    </p>
+    <ul>
+        <li><code class="inlinecode">$0</code>: <code class="inlinecode">"-zaza ls "*"</code> is the whole command.</li>
+        <li><code class="inlinecode">$1</code>: Beacon ID</li>
+        <li><code class="inlinecode">$2</code>: <code class="inlinecode">"ls"</code> the first argument.</li>
+        <li><code class="inlinecode">$3</code>: <code class="inlinecode">"*"</code> is the second argument</li>
+    </ul>
+
+    <p class="mynote">
+        <strong>(subroutine)</strong> Eg: <code class="inlinecode">execute_zaza($1, $mode, $target_dir, $file_type);</code>
+    </p>
+    <ul>
+        <li><code class="inlinecode">$1</code>: $bid</li>
+        <li><code class="inlinecode">$2</code>: <code class="inlinecode">"ls"</code> first argument.</li>
+        <li><code class="inlinecode">$3</code>: <code class="inlinecode">"*"</code> second argument.</li>
+        <li><code class="inlinecode">$4</code>: <code class="inlinecode">"file_type"</code> third argument.</li>
+    </ul>
+
+    <p class="mynote">
+        <strong>(on)</strong> Eg: <code class="inlinecode">on beacon_output</code>
+    </p>
+    <ul>
+        <li><code class="inlinecode">$1</code>: BID</li>
+        <li><code class="inlinecode">$2</code>: The string output from beacon.</li>
+    </ul>
+
+    <h2>on beacon_output Event</h2>
+
+    <p class="mynote">
+        <code class="inlinecode">on beacon_output</code> is an event function. Every time beacon outputs something it will execute this code section.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">on beacon_output {
+    local('$bid $out');
+    $bid = $1;
+    $out = $2;
+    if ("*[-zaza]*" !iswm $out) {
+        return;
+    }</code></pre>
+
+    <p class="mynote">
+        Why we don't use <code class="inlinecode">eq</code> or <code class="inlinecode">==</code>: because <code class="inlinecode">eq</code> and <code class="inlinecode">==</code> require an exact string. <code class="inlinecode">"*[-zaza]*"</code> uses <code class="inlinecode">*</code> to match everything before and after <code class="inlinecode">[-zaza]</code>. You can also do <code class="inlinecode">"*[-zaza] ?*" iswm $out</code> — the <code class="inlinecode">?</code> will represent 1 character. So if the beacon_output doesn't contain <code class="inlinecode">[-zaza]</code> it will return the function.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">    if ("*[-zaza] -1*" iswm $out) {
+        berror($bid, "BOF failed (returned -1). Check path or permissions.");
+        return;
+    }</code></pre>
+
+    <p class="mynote">
+        The beacon print <code class="inlinecode">[-zaza] -1</code> means the BOF failed.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">    if ("*[-zaza] 1*" iswm $out) {
+        blog($bid, "BOF succeeded! Listing...");
+        execute_zaza($bid, "ls", "*");
+        return;
+    }
+}</code></pre>
+
+    <p class="mynote">
+        If the beacon prints <code class="inlinecode">[-zaza] 1</code> it means the BOF succeeded. It will call <code class="inlinecode">execute_zaza</code>.
+    </p>
+
+    <h2>Bind and Lambda function</h2>
+
+    <pre class="codeblock"><code class="codeblock">bind Ctrl+Shift+Z {
+    binput($1, "shell whoami /priv");
+}</code></pre>
+
+    <p class="mynote">
+        <code class="inlinecode">bind</code> lets you create a keyboard shortcut. <code class="inlinecode">Ctrl + Shift + Z</code> will run <code class="inlinecode">shell whoami /priv</code> as a beacon command.
+    </p>
+
+    <pre class="codeblock"><code class="codeblock">&amp;code = lambda(&amp;code_section, &amp;new_var = &amp;old_var);</code></pre>
+
+    <p class="mynote">
+        <code class="inlinecode">lambda()</code> is used to create a closure — it captures a reference to an existing variable into a new variable name inside the code section.
+    </p>
+
     <p class="mynote">To use the CNA you'll need to load it. By going to scripts tab and click on load.</p>
     <img src="IMAGES/CobaltStrike/load_cna.png" alt="Cobalt Strike">
     <p class="mynote">Here's the test result:</p>
