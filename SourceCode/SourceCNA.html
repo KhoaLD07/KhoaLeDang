@@ -15,79 +15,221 @@
 
     <h2>Beacon Object File:</h2>
 
-    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
-	datap data;
-	WIN32_FIND_DATAA file_data;
-	HANDLE file_handle = NULL;
-	formatp out_buffer;
-	char* target_dir = NULL;
-	int length = 0;
-	BeaconDataParse(&amp;data, buff, len);
-	
-	target_dir = BeaconDataExtract(&amp;data, &amp;length);
-	int out_size = 0;
-	BeaconFormatAlloc(&amp;out_buffer, 8192);
-	file_handle = FindFirstFileA(target_dir, &amp;file_data);
-	if (file_handle == INVALID_HANDLE_VALUE)
-	{
-		BeaconPrintf(CALLBACK_ERROR, "FAILED TO FIND FIRST FILE\n");
-		BeaconFormatFree(&amp;out_buffer);
-		return;
-	}
-	BeaconFormatPrintf(&amp;out_buffer, "---List---\n");
-	do
-	{
-		BeaconFormatPrintf(&amp;out_buffer, "%s\n", file_data.cFileName);
-	} while (FindNextFileA(file_handle, &amp;file_data) != 0);
-
-	char* final_output = BeaconFormatToString(&amp;out_buffer, &amp;out_size);
-	BeaconPrintf(CALLBACK_OUTPUT, "%s\n", final_output);
-	FindClose(file_handle);
-	BeaconFormatFree(&amp;out_buffer);
-	return;
+    <pre class="codeblock"><code class="codeblock">
+		void execute_ls(datap* req_data) {
+			WIN32_FIND_DATAA file_data;
+			HANDLE file_handle = NULL;
+			formatp out_buffer;
+			char* target_dir = NULL;
+			int length = 0;
+			int out_size = 0;
+		
+			target_dir = BeaconDataExtract(req_data, &length);
+			BeaconFormatAlloc(&out_buffer, 8192);
+		
+			file_handle = FindFirstFileA(target_dir, &file_data);
+			if (file_handle == INVALID_HANDLE_VALUE) {
+				BeaconPrintf(CALLBACK_ERROR, "FAILED TO FIND FIRST FILE\n");
+			}
+			else {
+				BeaconFormatPrintf(&out_buffer, "---List---\n");
+				do {
+					BeaconFormatPrintf(&out_buffer, "%s\n", file_data.cFileName);
+				} while (FindNextFileA(file_handle, &file_data) != 0);
+		
+				FindClose(file_handle);
+			}
+		
+			char* final_output = BeaconFormatToString(&out_buffer, &out_size);
+			if (out_size > 0) {
+				BeaconPrintf(CALLBACK_OUTPUT, "%s\n", final_output);
+			}
+		
+			BeaconFormatFree(&out_buffer);
+		}
+		
+		void execute_cd(datap* req_data) {
+			int length = 0;
+			char* target_dir = BeaconDataExtract(req_data, &length);
+		
+			if (SetCurrentDirectoryA(target_dir)) {
+				BeaconPrintf(CALLBACK_OUTPUT, "Changed directory to: %s\n", target_dir);
+			}
+			else {
+				BeaconPrintf(CALLBACK_ERROR, "FAILED TO CHANGE DIRECTORY\n");
+			}
+		}
+		
+		void execute_rm(datap* req_data) {
+			int length = 0;
+			char* target_dir = BeaconDataExtract(req_data, &length);
+			char* type = BeaconDataExtract(req_data, &length);
+		
+			if (strcmp(type, "dir") == 0) {
+				if (RemoveDirectoryA(target_dir) == 0) {
+					BeaconPrintf(CALLBACK_OUTPUT, "Failed to remove directory %lu\n[-zaza] -1\n", GetLastError());
+				}
+				else {
+					BeaconPrintf(CALLBACK_OUTPUT, "Directory Deleted!\n[-zaza] 1\n");
+				}
+			}
+			else if (strcmp(type, "f") == 0) {
+				if (DeleteFileA(target_dir) == 0) {
+					BeaconPrintf(CALLBACK_OUTPUT, "Failed to remove File %lu\n[-zaza] -1\n", GetLastError());
+				}
+				else {
+					BeaconPrintf(CALLBACK_OUTPUT, "File Deleted!\n[-zaza] 1\n");
+				}
+			}
+		}
+		
+		void execute_touch(datap* req_data) {
+			int length = 0;
+			char* target_dir = NULL;
+			char* type = NULL;
+			HANDLE hFile = INVALID_HANDLE_VALUE;
+			target_dir = BeaconDataExtract(req_data, &length);
+			type = BeaconDataExtract(req_data, &length);
+			if (strcmp(type, "f") == 0) {
+				hFile = CreateFileA(target_dir, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+				if (hFile == INVALID_HANDLE_VALUE) {
+					BeaconPrintf(CALLBACK_OUTPUT, "Failed to Create File [-zaza] -1");
+				}
+				else {
+					BeaconPrintf(CALLBACK_OUTPUT, "File Created![-zaza] 1");
+					CloseHandle(hFile);
+				}
+			}
+			else if (strcmp(type, "dir") == 0) {
+				BOOL temp = FALSE;
+				temp = CreateDirectoryA(target_dir, NULL);
+				if (temp == 0) {
+					BeaconPrintf(CALLBACK_OUTPUT, "Failed to Create ABC [-zaza] -1");
+				}
+				else {
+					BeaconPrintf(CALLBACK_OUTPUT, "Folder Created![-zaza] 1");
+				}
+			}
+		}
+		
+		void go(char* buff, int len) {
+			datap data;
+			int length = 0;
+			char curr_dir[MAX_PATH];
+		
+			BeaconDataParse(&data, buff, len);
+			char* mode = BeaconDataExtract(&data, &length);
+		
+			GetCurrentDirectoryA(MAX_PATH, curr_dir);
+			BeaconPrintf(CALLBACK_OUTPUT, "Current Directory: %s\n", curr_dir);
+		
+			if (strcmp(mode, "ls") == 0) {
+				execute_ls(&data);
+			}
+			else if (strcmp(mode, "cd") == 0) {
+				execute_cd(&data);
+			}
+			else if (strcmp(mode, "rm") == 0) {
+				execute_rm(&data);
+			}
+			else if (strcmp(mode, "touch") == 0) {
+				execute_touch(&data);
+			}
+			else {
+				BeaconPrintf(CALLBACK_ERROR, "UNKNOWN COMMAND: %s\n", mode);
+			}
+		}
 }</code></pre>
 
     <h2>Aggressor CNA:</h2>
 
-    <pre class="codeblock"><code class="codeblock">alias -ls {
-		local('$barch $handle $data $args $target_dir $bof_path');
-	
-		if (size(@_) != 2) {
-			berror($1, "How to use: -ls [path]");
-			return;
-		}
-		
-		$target_dir = $2;
+    <pre class="codeblock"><code class="codeblock">sub execute_zaza {
+		local('$bid $mode $target_dir $file_type $barch $bof_path $handle $data $args');
+		$bid = $1;
+		$mode = $2;
+		$target_dir = $3;
+		$file_type = $4;
 	
 		if (strlen($target_dir) == 0) {
-			berror($1, "Path cannot be empty");
+			berror($bid, "Path cannot be empty");
 			return;
 		}
-	
-		if (![$target_dir endsWith: "*"]) {
-			if ([$target_dir endsWith: "\\"] || [$target_dir endsWith: "/"]) {
-				$target_dir = $target_dir . "*";
-			} else {
-				$target_dir = $target_dir . "\\*";
+		if ($mode eq "ls") {
+			if (![$target_dir endsWith: "*"]) {
+				if ([$target_dir endsWith: "\\"] || [$target_dir endsWith: "/"]) {
+					$target_dir = $target_dir . "*";
+				} else {
+					$target_dir = $target_dir . "\\*";
+				}
 			}
 		}
 	
-		$barch = barch($1);
+		$barch = barch($bid);
 		$bof_path = script_resource("BOF2." . $barch . ".obj");
 	
 		if (!-exists $bof_path) {
-			berror($1, "BOF not found: " . $bof_path);
+			berror($bid, "BOF not found: " . $bof_path);
 			return;
 		}
 	
 		$handle = openf($bof_path);
 		$data   = readb($handle, -1);
 		closef($handle);
+		if ($mode eq "rm" || $mode eq "touch") {
+			$args = bof_pack($bid, "zzz", $mode, $target_dir, $file_type);
+		} else {
+			$args = bof_pack($bid, "zz", $mode, $target_dir);
+		}
 	
-		$args = bof_pack($1, "z", $target_dir);
+		btask($bid, "Sending to Beacon... Path: " . $target_dir);
+		beacon_inline_execute($bid, $data, "go", $args);
+	}
+	alias -zaza {
+		local('$barch $handle $data $args $target_dir $bof_path $mode $file_type');
+		if (size(@_) < 2 || $2 eq "help") {
+			berror($1, "How to use: -zaza [command] [path]");
+			berror($1, "cd [path]: change directory");
+			berror($1, "ls [path]: list directory");
+			berror($1, "rm [path] [f|dir]: delete file/folder");
+		berror($1, "touch [path] [f|dir]: create file/folder");
+			return;
+		}
 	
-		btask($1, "Sending to Beacon... Path: " . $target_dir);
-		beacon_inline_execute($1, $data, "go", $args);
-	}</code></pre>
+		$mode = $2;
+		$target_dir = $3;
+		$file_type = $4;
+	
+		# Validate file_type for rm
+		if ($mode eq "rm" && strlen($file_type) == 0) {
+			berror($1, "rm requires a type argument: file or dir");
+			return;
+		}
+		if ($mode eq "touch" && strlen($file_type) == 0) {
+			berror($1, "touch requires a type argument: file or dir");
+			return;
+		}
+		execute_zaza($1, $mode, $target_dir, $file_type);
+	}
+	on beacon_output {
+		local('$bid $out');
+		$bid = $1;
+		$out = $2;
+	
+		if ("*[-zaza]*" !iswm $out) {
+			return;
+		}
+	
+		if ("*[-zaza] -1*" iswm $out) {
+			berror($bid, "BOF failed (returned -1). Check path or permissions.");
+			return;
+		}
+	
+		if ("*[-zaza] 1*" iswm $out) {
+			blog($bid, "BOF succeeded! Listing...");
+			execute_zaza($bid,"ls", "*");
+			return;
+		}
+	}
+</code></pre>
 </body>
 </html>

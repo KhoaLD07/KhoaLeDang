@@ -1,0 +1,142 @@
+﻿void execute_ls(datap* req_data) {
+        ...
+    target_dir = BeaconDataExtract(req_data, &length);
+    BeaconFormatAlloc(&out_buffer, 8192);
+    file_handle = FindFirstFileA(target_dir, &file_data);
+    else {
+        BeaconFormatPrintf(&out_buffer, "---List---\n");
+        do {
+            BeaconFormatPrintf(&out_buffer, "%s\n", file_data.cFileName);
+        } while (FindNextFileA(file_handle, &file_data) != 0);
+    char* final_output = BeaconFormatToString(&out_buffer, &out_size);
+    BeaconFormatFree(&out_buffer);
+} 
+As you can see I write some simple codes about how to change, list, remove, create file and directory. It's basically the same in C. The only differences are you have to resolve the functions because BOF doesn’t have a linker. 
+But remember to declare APIs you are using or it won't work.
+DECLSPEC_IMPORT BOOL WINAPI   KERNEL32$CloseHandle(HANDLE); 
+Here's how to declare one
+#define CloseHandle KERNEL32$CloseHandle
+I made a macro for shorter call. The rest will be the same, also don't forget the dll: KERNEL32$. You can check [insert function_finder.html]FunctionFinder to find
+which dll is this API in. 
+void go(char* buff, int len) {
+    datap data;
+    int length = 0;
+    char curr_dir[MAX_PATH];
+    BeaconDataParse(&data, buff, len);
+    char* mode = BeaconDataExtract(&data, &length);
+
+
+    GetCurrentDirectoryA(MAX_PATH, curr_dir);
+    BeaconPrintf(CALLBACK_OUTPUT, "Current Directory: %s\n", curr_dir);
+
+
+    if (strcmp(mode, "ls") == 0) {
+        execute_ls(&data);
+    }
+        ...
+}
+That’s our BOF let’s continue to the next section is CNA (aggressor script). CNA is using Sleep language which is based on Java Script. Don’t worry it’s not very hard. 
+sub execute_zaza {
+   …
+    if ($mode eq "ls") {
+        if (![$target_dir endsWith: "*"]) {
+            if ([$target_dir endsWith: "\\"] || [$target_dir endsWith: "/"]) {
+                $target_dir = $target_dir . "*";
+            } else {
+                $target_dir = $target_dir . "\\*";
+            }
+        }
+    } 
+sub is subroutine, it’s kinda similar to a normal function.
+Local(‘$mode, $target_dir,..)
+This is how you declare variables. ‘$’ is for the variable ‘@’ is for array. To deference an array example: @example[0], similar to other languages, the only difference is @. 
+        if ($mode eq "ls")
+There are 3 comparisons types:
+* “==; <; >=; …” This is for numbers
+* “eq; ne” :equal and not equal. This is for strings.
+* “iswm”. Is wildcard matching. This is pattern matching, it finds a string inside a larger string. 
+
+
+If (“*[abc]*”)  iswm $out)).
+* ‘*’ represent string and ‘?’ represent 1 character.
+In this example it means find [abc] inthe middle of the large string. “*[abc]”, this is the edn end of the string. 
+        $bof_path = script_resource(“BOF2.” . $arch . “.obj”);
+We’ll talk about how to links the string.
+        $test = (“abc” . “def”);
+$test will be “abcde”. Don’t forget to put a space between the strings. Continue is the script_resource(). This function will return the full path from our cna script. It connects our file with the path.
+=> $bof_path = “C:\Users\KingX\Documents\Test\BOF2.x86.obj”;
+        $handle = openf($bof_path);
+        $data = readb($handle, -1);
+Open file using ($bof_path). It’ll return a handle to the file. Then read binary the file we just opened.
+readb(..., -1): -1 is read until EOF. If you put in 100 bytes it will read the first 100 bytes.
+ If the ls doesn't have "\" I'll put it in the end of the string.
+
+    $barch = barch($bid);
+barch() will get the architect of the beacon (x86 or x64).
+    $bof_path = script_resource("BOF2." . $barch . ".obj");
+Links the BOF2.[architect].obj 
+            $handle = openf($bof_path);
+            $data   = readb($handle, -1);
+    Open handle and reads binary the BOF file.
+        $args = bof_pack($bid, "zzz", $mode, $target_dir, $file_type);
+"Z" is Wide String (UTF-16). The string will be added ‘\0’ in the end.  Very important because many Win32 APIs require wide string (e.g. L"C:\\Windows").
+* ‘z’ is similar but it’s normal (UTF-8)
+* ‘i’ is an integer
+* ‘s’ is short
+* ‘b’ is binary
+So we will pack it in the order “izz” integer, string, string. And put them inside $args
+To extracts “Z”: wchar_t* wstr = (wchar_t*)BeaconDataExtract(&parser, &len).
+You will need to provide an empty int to catch the string length.
+IMPORTANT: you have to extract the arguments in the same order too. It’ll be:
+1. mode = BeaconDataInt(&data);
+2. target_dir = BeaconExtarctData(&data, &length);
+3. type = BeaconExtarctData(&data, &length);
+beacon_inline_execute($bid, $data, "go", $args);
+beacon_inline_execute(): This function will execute $bid: beacon_id, $data: the BOF we just read from readb(). “go” is the entry point, $args is the arguments we just packs from bof_packs();
+alias -zaza {
+…
+    }
+alias is to create a new custom command when you type -zaza it will execute this section of code. There are Positional Parameter
+(alias) Eg: -zaza ls “*”
+* $0: “-zaza ls “*” is the whole command.
+* $1: Beacon ID
+* $2: “ls” the first argument.
+* $3: “*” is the second argument
+(subroutine) Eg:   execute_zaza($1, $mode, $target_dir, $file_type);
+* $1: $bid
+* $2 : “ls”: first argument.
+* $3: “*”:second argument.
+* $4”file_type”: third argument.
+(on) Eg: on beacon_ouput
+* $1: BID
+* $2: The string output from beacon.
+
+
+This is new on beacon_output is an event function. Everytime beacon_output it will execute this code section.
+on beacon_output {
+    local('$bid $out');
+    $bid = $1;
+    $out = $2;
+    if ("*[-zaza]*" !iswm $out) {
+        return;
+    }
+This is new “iswm” means is wildcard match why we don’t use “eq” or “==”. Because eq and == required an exact string. "*[-zaza]*" inside this string we can see “*” it will take every thing before and after the [-zaza]. You can also do this ("*[-zaza] ?*" iswm $out) will represent 1 character. So if the beacon_output doesn’t contain [-zaza] it will return the function.
+   if ("*[-zaza] -1*" iswm $out) {
+        berror($bid, "BOF failed (returned -1). Check path or permissions.");
+        return;
+    }
+The beacon print [-zaza] -1 means the BOF failed.   
+if ("*[-zaza] 1*" iswm $out) {
+        blog($bid, "BOF succeeded! Listing...");
+        execute_zaza($bid,"ls", "*");
+        return;
+    }
+If The beacon print [-zaza] 1 means the BOF succeeds. It will execute_zaza. 
+}
+bind Ctrl+Shift+Z {
+    binput($1, "shell whoami /priv");
+}
+bind Ctrl + Shift + Z as command 
+
+Lambda() function:
+&code = lambda(&code_section,&new_var = &old_var);
