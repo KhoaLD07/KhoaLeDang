@@ -62,8 +62,8 @@ img {
 }
 
 pre.codeblock {
-    background: #161c24;
-    color: #e7e7e7;
+    background: #1e1e1e; /* Chỉnh lại một chút cho giống nền VS Code */
+    color: #d4d4d4;
     padding: 18px 13px 16px 13px;
     margin: 20px 0 28px 0;
     border-radius: 7px;
@@ -81,7 +81,8 @@ pre.codeblock {
 }
 
 /* Block code: don't apply global `code` chip styling inside pre.codeblock */
-pre.codeblock code.codeblock {
+pre.codeblock code.codeblock,
+pre.codeblock code {
     display: block;
     background: transparent;
     padding: 0;
@@ -222,4 +223,61 @@ blockquote {
 ::-webkit-scrollbar-thumb {
     background: #383838;
     border-radius: 5px;
+}
+
+.hljs {
+    color: #d4d4d4;
+    background: transparent;
+}
+
+/* Khai báo cơ bản (int, const) */
+.hljs-keyword, .hljs-modifier { 
+    color: #569CD6; 
+} 
+
+/* Từ khóa điều khiển (if, return, switch) */
+.hljs-control, .hljs-keyword.control {
+    color: #C586C0;
+}
+
+/* Kiểu dữ liệu Windows API (HANDLE, DWORD, LPVOID) */
+.hljs-type, .hljs-built_in, .hljs-class .hljs-title { 
+    color: #4EC9B0; 
+}
+
+/* Tên Hàm (main, printf, OpenProcess) */
+.hljs-title.function_,
+.hljs-function .hljs-title {
+    color: #FFD700;
+}
+
+/* Biến, Tham số truyền vào (process_handle, pid) */
+.hljs-variable, .hljs-params, .hljs-attr { 
+    color: #9CDCFE; 
+}
+
+/* Chuỗi text ("C:\\...") */
+.hljs-string { 
+    color: #CE9178; 
+}
+
+/* Số (1053, 0) */
+.hljs-number, .hljs-literal { 
+    color: #B5CEA8; 
+}
+
+/* Ghi chú // */
+.hljs-comment { 
+    color: #6A9955; 
+}
+
+/* Cú pháp hệ thống (#include, #pragma) */
+.hljs-meta { 
+    color: #9B9B9B; 
+}
+.hljs-meta .hljs-keyword { 
+    color: #C586C0; 
+}
+.hljs-meta .hljs-string { 
+    color: #CE9178; 
 }

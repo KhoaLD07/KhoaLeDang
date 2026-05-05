@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLL Notes</title>
+    <link rel="stylesheet" href="style.css">
+<script src="highlight.js"></script>
+<script src="languages.js"></script>
+<script>
+    hljs.highlightAll();
+</script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">DLLS</h1>
+    <h1 style="font-size: 20;">TOPIC: BASICS, LOADING TYPES, DLL HIJACKING, INJECTION</h1>
+
+    <p class="mynote">
+        Hello, today we will talk about <strong>DLLs</strong>. <strong>DLL</strong> (Dynamic Link Library) is a <strong>PE format</strong> file.
+        It is similar to <strong>.exe</strong>, but <strong>DLLs cannot run alone</strong>. They need to be <strong>loaded inside another process</strong>.
+    </p>
+
+    <p class="mynote">
+        Here are some benefits of using DLLs:
+    </p>
+    <ul>
+        <li>Code reusability: You can use the same code in multiple projects.</li>
+        <li>Memory efficiency: Saves RAM and disk usage.</li>
+        <li>Easy updates: You can update the DLL without recompiling the whole project.</li>
+    </ul>
+
+    <p class="mynote">
+        Here are common ways DLLs get loaded:
+    </p>
+    <ul>
+        <li>Static linking (<code class="inlinecode">ntdll</code>, <code class="inlinecode">kernel32</code>, ...): loaded automatically by the Windows loader from the IAT.</li>
+        <li>Dynamic linking (<code class="inlinecode">user32</code>, <code class="inlinecode">advapi32</code>, ...): loaded at runtime using <code class="inlinecode">LoadLibraryA</code>.</li>
+        <li>Injection: a payload DLL is forced into a target process.</li>
+    </ul>
+
+    <h2>I. DLL HIJACKING (Lv.0)</h2>
+
+    <p class="mynote">
+        After learning the basics, this is the <strong>easiest way to inject a DLL</strong>: <strong>make the victim program load it</strong>.
+        First, create a <strong>payload DLL</strong> (for example, with the Visual Studio DLL template).
+    </p>
+
+    <img src="IMAGES/DLL/create_payload.png" alt="create_payload">
+
+    <p class="mynote">
+        Once we have the DLL, the victim process can load it like this:
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">// victim.cpp
+#include "Windows.h"
+#include "stdio.h"
+
+int main() {
+    HMODULE library_module = NULL;
+    library_module = LoadLibraryA("payload.dll");
+    if (library_module == NULL) {
+        printf("\nFAILED TO LOAD payload.dll");
+        return 1;
+    }
+    return 0;
+}</code></pre>
+
+    <img src="IMAGES/DLL/dll_looking_for_payload.png" alt="">
+
+    <p class="mynote">
+        If the victim loads <code class="inlinecode">payload.dll</code>, <strong>Windows will search known paths</strong>.
+        If we place our DLL in one of those paths, it can be <strong>loaded</strong>.
+    </p>
+
+    <img src="IMAGES/DLL/dll_hijacking_loaded.png" alt="">
+
+    <h2>II. DLL INJECTION</h2>
+    <p> DLL injector is kinda similar to Shellcode injector. You'll need to allocate memory inside victim give it <strong>PAGE_READWRITE</strong>.
+        <strong>This method is better than DLL hijacking</strong>. It works by create a <strong>remote thread</strong> from an injector to <strong>force the victim to load our payload.dll</strong>.
+        <br> <pre class="codeblock"><code class="language-cpp">
+            //injector.c
+            char dll_path[] = "C:\\..\\payload.dll";
+            HANDLE process_handle = INVALID_HANDLE_VALUE;
+            ...
+        </code></pre>
+        <strong>First</strong> We open the <strong>victim process</strong>. Using <strong>OpenProcess API</strong>
+        <pre class = "codeblock">
+        <code class="language-cpp">
+            process_handle = OpenProcessA(PROCESS_ALL_ACCESS,...);
+        </code>
+    </pre>
+        I'll <strong>allocate a space inside the victim.exe</strong> and then create a pointer to the memory I just created inside.
+        <pre class="codeblock"><code class="language-cpp">dll_path_inside_victim = VirtualAllocEx(process_handle,..., sizeof(dll_path), MEM_COMMIT| MEM_RESERVE, PAGE_READWRITE)</code></pre>
+        After allocating a memory inside victim we'll <strong>write the dll_path inside it</strong>.
+        <pre class="codeblock"><code class="language-cpp">WriteProcessMemory(process_handle, dll_path_inside_victim, dll_path, sizeof(dll_path), NULL)</code></pre>
+        All right we have everything we need, Now we create a <strong>Thread</strong> that use <strong>LoadLibraryA</strong> function. We can cast <strong>(LPTHREAD_START_ROUTINE)LoadLibraryA</strong>. Because they are in the same address in both
+        process.
+        <pre class = "codeblock"><code class="language-cpp">CreateRemoteThread(process_handle, 0, NULL, (LPTHREAD_START_ROUTINE)LoadLibraryA, dll_path_inside_victim, 0, NULL)</code></pre>
+        <strong>The DLL should be working!</strong>
+        <img src="IMAGES/DLL/dll_injection.png" alt="">
+    </p>
+    <h1>III. DLL proxying (Fake DLL)</h1>
+    <p class="mynote">
+        This is a better version of DLL Hijacking. Instead of have to load our library manually, we use the 
+        With <strong>Process Monitor</strong> we can see all the dlls got loaded by a processs.
+        <img src="IMAGES/DLL/dll_proxing_looking_for_victim_dll.png" alt="">
+        <br>As you can see, <strong>victim.exe</strong> loaded <strong>victim_dll</strong>. And we have our dll, I'll call it <strong>payload.dll</strong>. Then I'll rename my <strong>payload.dll</strong> to <strong>victim_dll</strong> and the <strong>victim_dll </strong> into <strong>victim_source_dll</strong>
+        If we only do this, most process won't work anymore because there might be some missing functions inside <strong>victim_dll</strong>. So we have to foward all the functions inside the <strong>victim_dll</strong>
+        <pre class="codeblock">
+            <code class="language-cpp">
+                #pragma comment(linker, "/export:Add=victim_source_dll.Add")
+                ... // the rest of our dll stays the same.
+            </code>
+        </pre>
+        <img src="IMAGES/DLL/dll_proxying_works.png" alt="">
+    </p>
+    <h1>IV.DLL phantom</h1>
+    <p class="mynote">
+        DLL phantom works renaming our <strong>payload.dll</strong> to one of the <strong>optional DLLs</strong> (DLLs doesn't required for the application to run). This method is the easiest method but it won't work all the time.
+        <img src="IMAGES/DLL/dll_phatom.png" alt="">
+        You can see the victim.exe is looking for <strong>wstapi32.dll</strong>, not founded but it can still run normally. So if we change our <strong>payload.dll</strong> into <strong>wstapi32.dll</strong> It will be injected inside the process.
+        That's all for today see you in the next blog.
+        <a href="SourceCode/SourceDLL.html">Source Code</a>
+    </p>
+</body>
+</html>

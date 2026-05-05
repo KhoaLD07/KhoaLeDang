@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Scheduler Source Code</title>
     <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -12,7 +17,7 @@
     <p>
         <a href="../TaskScheduler.html">Go back to TaskScheduler</a>
     </p>
-<pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
+<pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;comdef.h&gt;
 #include &lt;taskschd.h&gt;
 #include &lt;stdio.h&gt;

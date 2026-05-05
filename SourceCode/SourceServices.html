@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Services Source Code</title>
     <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -12,7 +17,7 @@
     <p>
         <a href="../Services.html">Go back to Services</a>
     </p>
-<pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
+<pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;WtsApi32.h&gt;
 #include &lt;Sddl.h&gt;
@@ -297,7 +302,7 @@ int main() {
 }
 </code></pre>
 <h2>Dll CODE</h2>
-<pre class="codeblock"><code class="codeblock">
+<pre class="codeblock"><code class="language-cpp">
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "pch.h"
 BOOL APIENTRY DllMain( HMODULE hModule,

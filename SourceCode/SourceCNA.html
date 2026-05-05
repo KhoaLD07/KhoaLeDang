@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Source CNA — BOF &amp; Aggressor</title>
     <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -15,7 +20,7 @@
 
     <h2>Beacon Object File:</h2>
 
-    <pre class="codeblock"><code class="codeblock">
+    <pre class="codeblock"><code class="language-cpp">
 		void execute_ls(datap* req_data) {
 			WIN32_FIND_DATAA file_data;
 			HANDLE file_handle = NULL;
@@ -143,7 +148,7 @@
 
     <h2>Aggressor CNA:</h2>
 
-    <pre class="codeblock"><code class="codeblock">sub execute_zaza {
+    <pre class="codeblock"><code class="language-cpp">sub execute_zaza {
 		local('$bid $mode $target_dir $file_type $barch $bof_path $handle $data $args');
 		$bid = $1;
 		$mode = $2;

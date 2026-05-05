@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Windows Registry Overview</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;"><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
@@ -116,7 +121,7 @@
 
     <h2>7. C Registry Code Example</h2>
     <p>Here is the C code example used in this topic:</p>
-    <pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
+    <pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;stdio.h&gt;
 void create_run_key() {
 	HKEY current_user = NULL;
@@ -139,7 +144,7 @@ void create_run_key() {
 }
 </code></pre>
 <p>Here is how to create a run key first you need paths to your <strong>.exe</strong> and the path to the run key. After that you open the run key using RegOpenKey. Then RegSetValueExW to create a value and set it for our path. You should see .exe file in task manager start up</p>
-<pre class="codeblock"><code class="codeblock">
+<pre class="codeblock"><code class="language-cpp">
 void disable_taskmgr(DWORD data) {
 	HKEY system_key = NULL;
 	LSTATUS create_key = NULL;
@@ -160,7 +165,7 @@ void disable_taskmgr(DWORD data) {
 }
 </code></pre>
 <p>To disable task manager you will need to create a key and set value for it. For example here you can see I created a key inside HKEY_CURRENT_USER. And then then I set value for the key using RegSetValueExW to set the "DisableTaskMgr" into my DWORD data so you can change it on and off.</p>
-<pre class="codeblock"><code class="codeblock">
+<pre class="codeblock"><code class="language-cpp">
 void change_cmd_color(DWORD new_color) {
 	HKEY key_handle = NULL;
 	LSTATUS open_reg = 0;

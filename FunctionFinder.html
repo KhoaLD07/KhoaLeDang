@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Function Finder</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -25,7 +30,7 @@
 
     <p class="mynote"><strong>Function Finder</strong></p>
 
-    <pre class="codeblock"><code class="codeblock">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    <pre class="codeblock"><code class="language-cpp">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
     PVOID Reserved1[2];
     LIST_ENTRY InMemoryOrderLinks;
     PVOID Reserved2[2];
@@ -48,7 +53,7 @@
         First step I will custom the <strong>LDR_DATA_TABLE_ENTRY_CUSTOM</strong> since the <code class="inlinecode">BaseDllName</code> is reserved. 
     </p>
 
-    <pre class="codeblock"><code class="codeblock">BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
+    <pre class="codeblock"><code class="language-cpp">BOOL SearchFunctionInDll(void* dllBase, const char* fnName) {
     PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dllBase;
     if (dos-&gt;e_magic != IMAGE_DOS_SIGNATURE) return FALSE;
     PIMAGE_NT_HEADERS nt =
@@ -85,7 +90,7 @@
         That's how we search function in a DLL. Now we move on to "How do we get the DLL base".
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void FindFunctionInProcess(const char* fnName) {
+    <pre class="codeblock"><code class="language-cpp">void FindFunctionInProcess(const char* fnName) {
     PPEB peb = (PPEB)__readgsqword(0x60);
     PPEB_LDR_DATA ldr = peb-&gt;Ldr;
     LIST_ENTRY* head = &ldr-&gt;InMemoryOrderModuleList;
@@ -107,7 +112,7 @@
     printf("Function not found: %s\n", fnName);
 }</code></pre>
 
-    <pre class="codeblock"><code class="codeblock">struct _TEB {
+    <pre class="codeblock"><code class="language-cpp">struct _TEB {
     NT_TIB NtTib;                // Offset 0x00
     PVOID EnvironmentPointer;    // Offset 0x38
     CID ClientId;                // Offset 0x40
@@ -129,7 +134,7 @@
         After that we will put the DLL base into the <code class="inlinecode">SearchFunctionInDll()</code>. If the function returns TRUE that means we have found it.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">int main() {
+    <pre class="codeblock"><code class="language-cpp">int main() {
     char fnName[128];
 
     LoadLibraryA("user32.dll");
@@ -156,7 +161,7 @@
     <h2>2. Full C Code Example</h2>
     <p class="mynote">Here is the full C source code version of this Function Finder:</p>
 
-    <pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
+    <pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;winternl.h&gt;
 #include &lt;stdio.h&gt;
 

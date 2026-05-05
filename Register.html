@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left; "><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
@@ -39,7 +44,7 @@ performs calculation almost immediately.</p>
     <p>In ASM when we <code class="inlinecode">SUB rsp</code> we expand the size of the stack. But in this blog, for explaining I will use +8 when we push—in fact it will be -8 to rsp.</p>
 
     <p>Example: <code class="inlinecode">bigSum(int a, int b, int c, int d, int e)</code> returning <code class="inlinecode">a + b + c + d + e</code>, called as <code class="inlinecode">bigSum(10, 9, 5, 1, 10)</code>:</p>
-    <pre class="codeblock"><code class="codeblock">// prep
+    <pre class="codeblock"><code class="language-cpp">// prep
 mov [rsp + 0x20], 10
 mov r9, 1
 mov r8, 5
@@ -63,7 +68,7 @@ ret           // 0</code></pre>
     <p>It's 0x28 (40 decimal) because 8 bytes per register 8 × 4 = 32 bytes (0x20), but when we <code class="inlinecode">call</code> the function it pushes the return address, so the offset from the stack pointer is 0x28.</p>
 
     <p>Another example: a function that calls another function. We use the <strong>Borrow and repay rule</strong>: when you call a function you have to align so that the return address offset is -8 from the call.</p>
-    <pre class="codeblock"><code class="codeblock">// print:       // 8
+    <pre class="codeblock"><code class="language-cpp">// print:       // 8
 //   push rbp   // 16
 //   mov rbp, rsp
 //   sub rsp, 40  // 56

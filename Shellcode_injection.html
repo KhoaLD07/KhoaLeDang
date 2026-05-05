@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shell code injection</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -20,7 +25,7 @@
         The differences are I code all of them inside only 1 function, I use the <code class="inlinecode">pragma optimize</code> and all the words are in . I will tell you why I do that later.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    <pre class="codeblock"><code class="language-cpp">typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
 ...
 	UNICODE_STRING FullDllName;
 	UNICODE_STRING BaseDllName;
@@ -29,7 +34,7 @@
 
     <p class="mynote">As you can see here I still custom the <code class="inlinecode">LDR_DATA_TABLE_ENTRY</code> struct.</p>
 
-    <pre class="codeblock"><code class="codeblock">#pragma optimize("", off)
+    <pre class="codeblock"><code class="language-cpp">#pragma optimize("", off)
 extern "C" void entry_point() {
 	decltype(MessageBoxA)* pMessageBoxA = NULL;
 	decltype(GetProcAddress)* pGetProcAddress = NULL;
@@ -43,7 +48,7 @@ extern "C" void entry_point() {
         I have to do this because we load the function manually because we may be don't have that function in the host process. You can also see I use <code class="inlinecode">#pragma optimize("", off)</code>. I will talk about this later.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">	char u32[11] = { 'u', 's', 'e', 'r', '3', '2', '.', 'd', 'l', 'l', '\0' };
+    <pre class="codeblock"><code class="language-cpp">	char u32[11] = { 'u', 's', 'e', 'r', '3', '2', '.', 'd', 'l', 'l', '\0' };
 	WCHAR k32[13] = { 'K', 'E', 'R', 'N', 'E', 'L', '3', '2', '.', 'D', 'L', 'L', '\0' };
 	...</code></pre>
 
@@ -53,7 +58,7 @@ extern "C" void entry_point() {
 
     <p class="mynote">In asm it will mov bytes by bytes until the end so our string doesn't appear inside .rdata:</p>
 
-    <pre class="codeblock"><code class="codeblock">mov     [rsp+198h+var_130], 75h ; 'u'
+    <pre class="codeblock"><code class="language-cpp">mov     [rsp+198h+var_130], 75h ; 'u'
 mov     [rsp+198h+var_12F], 73h ; 's'
 mov     [rsp+198h+var_12E], 65h ; 'e'
 mov     [rsp+198h+var_12D], 72h ; 'r'
@@ -119,7 +124,7 @@ mov     [rsp+198h+var_126], 0
     </p>
     <h2>injector</h2>
     <p class="mynote">I make a small .exe injector using CreateToolhelp32Snapshot to snap all the process and then look for notepad process to inject my shell code in.s</p>
-    <pre class="codeblock"><code class="codeblock">#include &lt;windows.h&gt;
+    <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;tlhelp32.h&gt; 
 

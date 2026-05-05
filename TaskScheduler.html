@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Windows Task Scheduler Overview</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -57,7 +62,7 @@
     <h2>4. Using COM to Control Task Scheduler</h2>
     <p>Instead of clicking around in the Task Scheduler GUI, we can use COM (Component Object Model) to talk directly to the Task Scheduler service and create tasks programmatically.</p>
     <p>General COM pattern looks like this:</p>
-    <pre class="codeblock"><code class="codeblock">IWordApp* pWord;
+    <pre class="codeblock"><code class="language-cpp">IWordApp* pWord;
 CoCreateInstance(CLSID_Word, ..., &amp;pWord);
 pWord-&gt;Documents-&gt;Add();
 pWord-&gt;Selection-&gt;TypeText(L"Hello");
@@ -95,7 +100,7 @@ pWord-&gt;Selection-&gt;TypeText(L"Hello");
         <li>When you are doing all of these. The changes will stay on RAM until you <strong><code class="inlinecode">RegisterTaskDefinition</code></strong>. It will create the task.</li>
     </ul>
 
-    <pre class="codeblock"><code class="codeblock">
+    <pre class="codeblock"><code class="language-cpp">
 #include &lt;Windows.h&gt;
 #include &lt;comdef.h&gt;
 #include &lt;taskschd.h&gt;

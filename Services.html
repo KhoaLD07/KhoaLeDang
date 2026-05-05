@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Windows Services and Service Accounts</title>
     <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -38,7 +43,7 @@
 
     <p class="mynote"><strong>This is my code to Create a service:</strong></p>
 
-    <pre class="codeblock"><code class="codeblock">#include &lt;Windows.h&gt;
+    <pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;WtsApi32.h&gt;
 #include &lt;Sddl.h&gt;
@@ -55,7 +60,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         and then some name and path.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void show_message() {
+    <pre class="codeblock"><code class="language-cpp">void show_message() {
     DWORD response;
     LPCWSTR title = L"Service Notification";
     LPCWSTR message = L"Hello! Your service is running successfully.";
@@ -80,7 +85,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         I created a messagebox for the service we need to use this <code class="inlinecode">WTSSendMessageW</code> because This will use our session id to create one.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void WINAPI service_ctrl_handler(DWORD control_code) {
+    <pre class="codeblock"><code class="language-cpp">void WINAPI service_ctrl_handler(DWORD control_code) {
     if (control_code == SERVICE_CONTROL_STOP)
     {
         gservice_stats.dwCurrentState = SERVICE_STOPPED;
@@ -92,7 +97,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         First we need a service control handler function this function will help <code class="inlinecode">services.msc</code> can stop your service. Don't need to use <code class="inlinecode">taskkill</code>
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void WINAPI service_main(DWORD agrc, LPTSTR* agrv) {
+    <pre class="codeblock"><code class="language-cpp">void WINAPI service_main(DWORD agrc, LPTSTR* agrv) {
     gservice_stats_handle = RegisterServiceCtrlHandlerW(service_name, service_ctrl_handler);
 
     gservice_stats.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -111,7 +116,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         <code class="inlinecode">dwServiceType</code>, <code class="inlinecode">dwCurrentState</code>, <code class="inlinecode">dwControlsAccepted</code>. Then we apply by using <code class="inlinecode">SetServiceStatus()</code> function.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">void create_service() {
+    <pre class="codeblock"><code class="language-cpp">void create_service() {
     SC_HANDLE service_handle = NULL;
     SC_HANDLE service_manager_handle = NULL;
     service_manager_handle = OpenSCManager(NULL, SERVICES_ACTIVE_DATABASEW, SC_MANAGER_CREATE_SERVICE);
@@ -143,7 +148,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
     </p>
 <img src="IMAGES/Services/CreateService.png" alt="Service Created!">
 
-    <pre class="codeblock"><code class="codeblock">void start_service(LPCWSTR service_name) {
+    <pre class="codeblock"><code class="language-cpp">void start_service(LPCWSTR service_name) {
 	SC_HANDLE service_handle = NULL;
 	SC_HANDLE service_manager_handle = NULL;
 	BOOL success = FALSE;
@@ -164,7 +169,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         Then use <code class="inlinecode">StartServiceW()</code> api to create.
     </p>
     <img src="IMAGES/Services/StartService.png" alt="Start Service">
-    <pre class="codeblock"><code class="codeblock">void stop_and_delete(LPCWSTR service_name) {
+    <pre class="codeblock"><code class="language-cpp">void stop_and_delete(LPCWSTR service_name) {
 	SC_HANDLE service_handle = NULL;
 	SC_HANDLE service_manager_handle = NULL;
 	BOOL success = FALSE;
@@ -180,7 +185,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         We merge stop and delete in one function so we need <code class="inlinecode">SERVICE_STOP | SERVICE_DELETE</code> privileges.
     </p>
     <img src="IMAGES/Services/DeleteService.png" alt="Stop and Delete">
-    <pre class="codeblock"><code class="codeblock">void protect_service(LPCWSTR service_name) {
+    <pre class="codeblock"><code class="language-cpp">void protect_service(LPCWSTR service_name) {
     SC_HANDLE service_handle = NULL;
     SCANDLE service_manager_handle = NULL;
 
@@ -214,7 +219,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
     Or you can use D:(D;;GA;;;WD) means Denied all general access to the resource, applied to everyone (WD). SetServiceObjectSecurity is used to apply the DACL to the service. SetNamedSecurityInfoW is used to apply the DACL to the folder, file or service.
     It's the same step but when you want to apply the DACL you need to convert the sddl string to a SECURITY_DESCRIPTOR struct. And then GetSecurityDescriptorDacl to get the DACL then we applied to the file or folder by using SetNamedSecurityInfoW.
 </p>
-<pre class="codeblock"><code class="codeblock">if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &amp;pSD, NULL)) {
+<pre class="codeblock"><code class="language-cpp">if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &amp;pSD, NULL)) {
     GetSecurityDescriptorDacl(pSD, &daclPresent, &pDacl, &daclDefaulted)
     DWORD result = SetNamedSecurityInfoW(
         (LPWSTR)folder_path, 
@@ -299,7 +304,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         </li>
     </ul>
 
-    <pre class="codeblock"><code class="codeblock">void set_recover_action(LPWSTR service_name) {
+    <pre class="codeblock"><code class="language-cpp">void set_recover_action(LPWSTR service_name) {
     SC_HANDLE service_manager_handle = NULL;
     SC_HANDLE service_handle = NULL;
     BOOL success = FALSE;
@@ -339,7 +344,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         To create recover actions we need a <code class="inlinecode">SERVICE_FAILURE_ACTIONSW</code> struct to contains all the <code class="inlinecode">SC_ACTION</code> config. then we begin to config by doing <code class="inlinecode">action[0].Type</code> for the type of action and delay for the time.
     </p>
     <img src="IMAGES/Services/SetRecoverAction.png" alt="RecoverActions">
-    <pre class="codeblock"><code class="codeblock">typedef struct _SC_ACTION {
+    <pre class="codeblock"><code class="language-cpp">typedef struct _SC_ACTION {
   SC_ACTION_TYPE Type;
   DWORD          Delay;
 } SC_ACTION, *LPSC_ACTION;</code></pre>
@@ -348,7 +353,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         After that we put all our actions into the <code class="inlinecode">SERVICE_FAILURE_ACTIONSW</code> struct. 
     </p>
 
-    <pre class="codeblock"><code class="codeblock">typedef struct _SERVICE_FAILURE_ACTIONSW {
+    <pre class="codeblock"><code class="language-cpp">typedef struct _SERVICE_FAILURE_ACTIONSW {
    DWORD dwResetPeriod; // The time, in seconds, after which to reset the failure count to zero if there are no failures.
    LPWSTR lpRebootMsg; // contains the message to be broadcast to server users before rebooting. It's needed when we use SC_ACTION_REBOOT.
    LPWSTR lpCommand; // contains the command line of the process for the process creation function to execute. It's needed when we use SC_ACTION_RUN_COMMAND.
@@ -364,7 +369,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         You can check this inside <strong>REGISTRY</strong>.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">/* When you want to create a Network Service, Local Service, or Local Service you need to change L"NT AUTHORITY\\NetworkService" or L"NT AUTHORITY\\LocalService" or NULL for Local System in the lpServiceStartName.
+    <pre class="codeblock"><code class="language-cpp">/* When you want to create a Network Service, Local Service, or Local Service you need to change L"NT AUTHORITY\\NetworkService" or L"NT AUTHORITY\\LocalService" or NULL for Local System in the lpServiceStartName.
 * ServiceCtrlHandler, ServiceMain are the one who runs the service.
 */</code></pre>
 
@@ -376,7 +381,7 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         You can use any compiler, I'll use <strong>Visual Studio</strong> to create a DLL project.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">// dllmain.cpp : Defines the entry point for the DLL application.
+    <pre class="codeblock"><code class="language-cpp">// dllmain.cpp : Defines the entry point for the DLL application.
 #include "pch.h"
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -430,21 +435,21 @@ extern "C" __declspec(dllexport) VOID WINAPI ServiceMain(DWORD argc, LPTSTR* arg
     <p class="mynote">
         It's mostly the same as we are creating a normal service. Then compile, after the compile is completed run cmd as administartor 
     </p>
-    <pre class="codeblock"><code class="codeblock">sc create MyNoteService binPath= "c:\windows\system32\svchost.exe -k MyCustomGroup" type= share start= demand</code></pre>
+    <pre class="codeblock"><code class="language-cpp">sc create MyNoteService binPath= "c:\windows\system32\svchost.exe -k MyCustomGroup" type= share start= demand</code></pre>
     <p class="mynote">
         This line create a service name <code class="inlinecode">MyNoteService</code> and it will use <code class="inlinecode">svchost</code> as a host and in <code class="inlinecode">MyCustomGroup</code> group.
     </p>
-    <pre class="codeblock"><code class="codeblock">reg add "HKLM\SYSTEM\CurrentControlSet\Services\MyNoteService\Parameters" /v ServiceDll /t REG_EXPAND_SZ /d "C:\[your path]\service_dll.dll" /f</code></pre>
+    <pre class="codeblock"><code class="language-cpp">reg add "HKLM\SYSTEM\CurrentControlSet\Services\MyNoteService\Parameters" /v ServiceDll /t REG_EXPAND_SZ /d "C:\[your path]\service_dll.dll" /f</code></pre>
     <p class="mynote">
         this line let the <code class="inlinecode">svchost.exe</code> knows when we start <code class="inlinecode">MyNoteService</code>, load this DLL into it's memory.
     </p>
 
-    <pre class="codeblock"><code class="codeblock">reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost" /v MyCustomGroup /t REG_MULTI_SZ /d "MyNoteService" /f</code></pre>
+    <pre class="codeblock"><code class="language-cpp">reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost" /v MyCustomGroup /t REG_MULTI_SZ /d "MyNoteService" /f</code></pre>
     <p class="mynote">
         Windows will only allows <code class="inlinecode">svchost</code> load services in the white list. If this line is missing <code class="inlinecode">svchost</code> won't run your dll to protect the system
     </p>
 
-    <pre class="codeblock"><code class="codeblock">sc start MyNoteService</code></pre>
+    <pre class="codeblock"><code class="language-cpp">sc start MyNoteService</code></pre>
     <p class="mynote">
         Start the service
     </p>

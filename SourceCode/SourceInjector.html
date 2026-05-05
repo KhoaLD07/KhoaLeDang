@@ -4,6 +4,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Injector Source Code</title>
     <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
 </head>
 <body>
     <h1 style="text-align: left;">
@@ -12,7 +17,7 @@
     <p>
         <a href="../index.html">Go back</a>
     </p>
-<pre class="codeblock"><code class="codeblock">#include &lt;windows.h&gt;
+<pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;tlhelp32.h&gt; 
 DWORD FindProcessId(const wchar_t* process_name) {
