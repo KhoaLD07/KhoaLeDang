@@ -241,14 +241,14 @@ blockquote {
 }
 
 /* Kiểu dữ liệu Windows API (HANDLE, DWORD, LPVOID) */
-.hljs-type, .hljs-built_in, .hljs-class .hljs-title { 
+.hljs-type, .hljs-class .hljs-title { 
     color: #4EC9B0; 
 }
 
 /* Tên Hàm (main, printf, OpenProcess) */
 .hljs-title.function_,
-.hljs-function .hljs-title {
-    color: #FFD700;
+.hljs-built_in, .hljs-function .hljs-title {
+    color: #c9b440;
 }
 
 /* Biến, Tham số truyền vào (process_handle, pid) */
