@@ -194,7 +194,7 @@ DataDirectory[12] - <strong>IAT</strong> (Import Address Table).</p>
         }
     }
     </code></pre>
-    <p class="mynote">entries_count: how many do we have to fix. To calculate this we’ll do a quick math. (Size of the entire block minus size of 8 bytes of the header) all divided by size of <strong>WORD</strong> (which is 2); After getting the counts, we will skip the Header then point to the data. I’ll call it <strong>reloc_data</strong>. Then we use a for loop to go through all the entries. Because we are using WORD so we’ll have  bytes = 16 bits. The first 4 bits are for the type, 12 remains are the offset. We create a pointer to the mem + reloc->VirtualAddress + offset. That's the wrong address. *target_address = *target_address + <strong>delta</strong>; This fixes the wrong address.<br/>reloc = reloc + reloc-&gt;SizeOfBlock : Next Page until the reloc-&gt;VirtualAddress == 0;<br/>The final step is to make our <strong>dll_main</strong> inside the mem .</p>
+    <p class="mynote">entries_count: how many do we have to fix. To calculate this we’ll do a quick math. (Size of the entire block minus size of 8 bytes of the header) all divided by size of <strong>WORD</strong> (which is 2); After getting the counts, we will skip the Header then point to the data. I’ll call it <strong>reloc_data</strong>. Then we use a for loop to go through all the entries. Because we are using WORD so we’ll have  bytes = 16 bits. The first 4 bits are for the type, 12 remains are the offset. We create a pointer to the mem + reloc->VirtualAddress + offset. That's where the wrong addresses are. *target_address = *target_address + <strong>delta</strong>; This fixes the wrong address.<br/>reloc = reloc + reloc-&gt;SizeOfBlock : Next Page until the reloc-&gt;VirtualAddress == 0;<br/>The final step is to make our <strong>dll_main</strong> inside the mem .</p>
     <pre class="codeblock"><code class="language-cpp">
     DWORD entry_point_rva = nt->OptionalHeader.AddressOfEntryPoint;
     if (entry_point_rva != 0)
@@ -224,7 +224,7 @@ DWORD RvaToOffset(PIMAGE_NT_HEADERS nt, DWORD rva) {
     return 0;
  }
     </code></pre>
-    <p class="mynote">Because we are reading the file, so the <strong>RVA</strong> won’t work we have to change it to the file offset using this formula:<br/>Offset = <strong>RVA</strong> - sectionRVA + section.PointerToRawData: we minus the function <strong>RVA</strong> and the section <strong>RVA</strong> to get the depth inside from the start of the section to the function. After that we add it with the pointer to raw data to get the file offset of the file.</p>
+    <p class="mynote">Because we are reading the file, so the <strong>RVA</strong> won’t work we have to change it to the file offset using this formula:<br/>Offset = <strong>RVA</strong> - sectionRVA + section.PointerToRawData: we minus the function <strong>RVA</strong> and the section <strong>RVA</strong> to get the depth inside from the start of the section to the function. After that we add it with the pointer to raw data to get the file offset.</p>
     <pre class="codeblock"><code class="language-cpp">
 DWORD GetReflectiveLoaderOffset(LPVOID base) {
     PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
@@ -279,6 +279,6 @@ DWORD GetReflectiveLoaderOffset(LPVOID base) {
 <p class="mynote">Remember inside the  reflective dll use <strong>#pragma optimize("", off). </strong>Your Reflective DLL should work now:</p>
 <img src="IMAGES/DLL/reflective_dll.png" alt="">
 
-<p class="mynote">That's all for today see you in the next blog! <br> Source Code <a href="SourceCode/SourceReflectiveDLL.html"></a></p>
+<p class="mynote">That's all for today see you in the next blog! <br><a href="SourceCode/SourceReflectiveDLL.html">Source Code</a></p>
 </body>
 </html>
