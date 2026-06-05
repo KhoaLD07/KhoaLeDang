@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Hooking Primitive Source Code</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../API_Hooking.html">Go back</a>
+    </p>
+    <h1 style="text-align: center;">API HOOKING PRIMITIVE SOURCE</h1>
+    <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+
+int WINAPI HookedMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType) {
+    wprintf(L"Blocked!\n");
+    wprintf(L"Original text: %s\n", lpText);
+    return IDOK;
+}
+
+void InstallHook() {
+    HMODULE hUser32 = LoadLibraryA("user32.dll");
+    FARPROC originalFuncAddress = GetProcAddress(hUser32, "MessageBoxW");
+
+    if (originalFuncAddress == NULL) {
+        printf("MessageBoxW not found!\n");
+        return;
+    }
+
+    BYTE jmpInstruction[12] = { 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xE0 };
+
+    void* hookAddr = (void*)HookedMessageBoxW;
+    memcpy(jmpInstruction + 2, &amp;hookAddr, 8);
+
+    DWORD oldProtect;
+    VirtualProtect(originalFuncAddress, 12, PAGE_EXECUTE_READWRITE, &amp;oldProtect);
+
+    memcpy(originalFuncAddress, jmpInstruction, 12);
+
+    VirtualProtect(originalFuncAddress, 12, oldProtect, &amp;oldProtect);
+
+    printf("Hook installed successfully!\n");
+}
+
+int main() {
+    printf("--- Before Hook ---\n");
+    MessageBoxW(NULL, L"Hello, this is a normal message box!", L"Test", MB_OK);
+
+    InstallHook();
+
+    printf("\n--- After Hook ---\n");
+    MessageBoxW(NULL, L"You cannot see me!", L"Test", MB_OK);
+
+    return 0;
+}</code></pre>
+</body>
+</html>

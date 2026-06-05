@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Hooking Detours Source Code</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../highlight.js"></script>
+    <script src="../languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="../index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <p>
+        <a href="../API_Hooking.html">Go back</a>
+    </p>
+    <h1 style="text-align: center;">API HOOKING DETOURS SOURCE</h1>
+    <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;Detours/detours.h&gt;
+
+static int (WINAPI* TrueMessageBoxW)(HWND, LPCWSTR, LPCWSTR, UINT) = MessageBoxW;
+
+int WINAPI HookedMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType) {
+    return TrueMessageBoxW(hWnd, L"Context changed!", L"Hooked!", uType);
+}
+
+void InstallHook() {
+    DetourRestoreAfterWith();
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+
+    DetourAttach(&amp;(PVOID&amp;)TrueMessageBoxW, HookedMessageBoxW);
+
+    DetourTransactionCommit();
+    printf("Detours Hook installed successfully!\n");
+}
+
+void UninstallHook() {
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+
+    DetourDetach(&amp;(PVOID&amp;)TrueMessageBoxW, HookedMessageBoxW);
+
+    DetourTransactionCommit();
+    printf("Detours Hook uninstalled!\n");
+}
+
+int main() {
+    printf("--- Before Hook ---\n");
+    MessageBoxW(NULL, L"Hello, this is a normal message box!", L"Test", MB_OK);
+
+    InstallHook();
+
+    printf("\n--- After Hook ---\n");
+    MessageBoxW(NULL, L"You cannot see me!", L"Test", MB_OK);
+
+    UninstallHook();
+
+    return 0;
+}</code></pre>
+</body>
+</html>

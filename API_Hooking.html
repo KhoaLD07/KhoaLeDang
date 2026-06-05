@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Hooking Notes</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="highlight.js"></script>
+    <script src="languages.js"></script>
+    <script>
+        hljs.highlightAll();
+    </script>
+</head>
+<body>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">API HOOKING</h1>
+    <h1 style="font-size: 20;">TOPIC: PRIMITIVE HOOKING, DETOURS</h1>
+
+    <p class="mynote">
+        Hello everyone today I will talk about how to API hooking. API hooking is a method to modify
+        interfere the function used. For example with <code class="inlinecode">MessageBoxA</code>: You can blocked it. Don't let
+        it appear, change the context inside, or fake that the user has chosen OK. I'll show
+        you 2 methods to do this. The first method is to do it the primitive way. We'll use the jump instruction
+        rewrite the original assembly with a new one. We need to overwrite the first few instructions
+        (the function prologue) with a 12-byte absolute jump instruction. it might corrupt the underlying assembly
+        and cause the process to crash.
+    </p>
+
+    <p class="mynote">
+        We'll create a new message box function. It'll return the as the user pressed OK.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">int WINAPI HookedMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType) {
+    wprintf(L"Blocked!\n");
+    wprintf(L"OriginalText: %s\n", lpText);
+    return IDOK;
+}</code></pre>
+
+    <p class="mynote">
+        After that, I'll make a <code class="inlinecode">InstallHook()</code> function which will change the <code class="inlinecode">MessageBoxW</code> with our new messagebox function.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">void InstallHook() {
+    HMODULE hUser32 = LoadLibraryA("user32.dll");
+    FARPROC originalFuncAddress = GetProcAddress(hUser32, "MessageBoxW");</code></pre>
+
+    <p class="mynote">
+        Get the original function address by using <code class="inlinecode">GetProcAddress()</code>.
+    </p>
+
+    <p class="mynote">
+        ASSEMBLY:<br>
+        mov rax, &lt;address_of_new_function (8Bytes)&gt; (Opcode: 48 B8 ...)<br>
+        jmp rax (opcode: FF E0)
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">    BYTE jmpInstruction[12] = { 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xE0 };</code></pre>
+
+    <p class="mynote">
+        After that we will copy our new message box function address into the jmpInstruction[];
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">    void* hookAddr = (void*)HookedMessageBoxW;
+    memcpy(jmpInstruction + 2, &amp;hookAddr, 8);
+    DWORD oldProtect;
+    VirtualProtect(originalFuncAddress, 12, PAGE_EXECUTE_READWRITE, &amp;oldProtect);</code></pre>
+
+    <p class="mynote">
+        Then we'll copy the jmpInstruction into the originalFuncAddress which is the <code class="inlinecode">MessageBoxW</code>.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">    memcpy(originalFuncAddress, jmpInstruction, 12);
+...
+}</code></pre>
+
+    <p class="mynote">
+        A normal main function!
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">int main() {
+    printf("Before Hook\n");
+    MessageBoxW(NULL, L"Hello!", L"Test", MB_OK);
+    InstallHook();
+    printf("\nAfter Hook\n");
+    MessageBoxW(NULL, L"You can't see me!", L"Test", MB_OK);
+    return 0;
+}</code></pre>
+
+    <h2>The second method: Detours</h2>
+
+    <p class="mynote">
+        The second methods is simpler using Detours make sure you got Detours downloaded!
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg install detours:x64-windows
+.\vcpkg integrate install</code></pre>
+
+    <p class="mynote">
+        After installed detours let's digging in.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;Detours/detours.h&gt;</code></pre>
+
+    <p class="mynote">
+        Create a <code class="inlinecode">TrueMessageBox</code> function pointer to the <code class="inlinecode">MessageBoxW</code> function address.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">static int (WINAPI* TrueMessageBoxW)(HWND, LPCWSTR, LPCWSTR, UINT) = MessageBoxW;</code></pre>
+
+    <p class="mynote">
+        Replace function
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">int WINAPI HookedMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType) {
+    return TrueMessageBoxW(hWnd, L"Context changed!", L"Hooked!", uType);
+}</code></pre>
+
+    <p class="mynote">
+        Here's what's we gonna do <code class="inlinecode">MessageBoxW</code> -&gt; <code class="inlinecode">HookedMessageBox</code> and <code class="inlinecode">TrueMessageBoxW</code> -&gt; Trampoline -&gt; OG MessageBox.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">void InstallHook() {
+    DetourRestoreAfterWith();</code></pre>
+
+    <p class="mynote">
+        Using Transaction to hooksafely
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());</code></pre>
+
+    <p class="mynote">
+        Attach the <code class="inlinecode">HookedMessageBoxW</code> into the <code class="inlinecode">&amp;TrueMessageBoxW</code> which is <code class="inlinecode">MessageBoxW</code>.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">    DetourAttach(&amp;(PVOID&amp;)TrueMessageBoxW, HookedMessageBoxW);
+
+    DetourTransactionCommit();
+    printf("Detours Hook installed successfully!\n");
+}</code></pre>
+
+    <pre class="codeblock"><code class="language-cpp">void UninstallHook() {
+    DetourTransactionBegin();
+    DetourUpdateThread(GetCurrentThread());
+
+    DetourDetach(&amp;(PVOID&amp;)TrueMessageBoxW, HookedMessageBoxW);
+
+    DetourTransactionCommit();
+    printf("Detours Hook uninstalled!\n");
+}</code></pre>
+
+    <pre class="codeblock"><code class="language-cpp">int main() {
+    printf("--- Before Hook ---\n");
+    MessageBoxW(NULL, L"Hello, this is a normal message box!", L"Test", MB_OK);
+
+    InstallHook();
+
+    printf("\n--- After Hook ---\n");
+    MessageBoxW(NULL, L"You cannot see me!", L"Test", MB_OK);
+
+    UninstallHook();
+
+    return 0;
+}</code></pre>
+
+    <p class="mynote">
+        As you can see this is way simpler than the other method and it's fast and safe.
+    </p>
+
+    <p class="mynote">
+        That's it for today see you in the next blog. For more details you can check the <a href="SourceCode/SourceAPIHookingPrimitive.html">Source Primitive</a> and <a href="SourceCode/SourceAPIHooking.html">Source Detours</a>.
+    </p>
+</body>
+</html>
