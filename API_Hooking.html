@@ -28,6 +28,8 @@
         and cause the process to crash.
     </p>
 
+    <h2>The first method: Primitive</h2>
+
     <p class="mynote">
         We'll create a new message box function. It'll return the as the user pressed OK.
     </p>
@@ -87,8 +89,10 @@
     MessageBoxW(NULL, L"You can't see me!", L"Test", MB_OK);
     return 0;
 }</code></pre>
-<img src="IMAGES/API_Hooking/OGHooking1.png" alt="API Hooking 1">
-<img src="IMAGES/API_Hooking/OGHooking2.png" alt="API Hooking 2">
+
+    <img src="IMAGES/API_Hooking/OGHooking1.png" alt="API Hooking 1">
+    <img src="IMAGES/API_Hooking/OGHooking2.png" alt="API Hooking 2">
+
     <h2>The second method: Detours</h2>
 
     <p class="mynote">
@@ -100,11 +104,25 @@ cd vcpkg
 .\bootstrap-vcpkg.bat
 .\vcpkg install detours:x64-windows
 .\vcpkg integrate install</code></pre>
-
     <p class="mynote">
-        After installed detours let's digging in.
+        First I'll explain how Detour works, It got 4 main steps.
     </p>
 
+    <ul>
+        <li><strong>1. Length Dissassembler:</strong> Instead of writing 12 bytes similar to the primitive method, which might crash the process. Detour will read instruction in assembly from the start of the function.
+            making sure not to truncate or split any instruction in half (Instruction Tearing).
+        </li>
+        <li><strong>2. Trampoline:</strong> Using the length calculated in the first step, Detours allocates memory for a "Trampoline". It copies the stolen original instructions here, and right below it is the JMP instruction pointing back to the remaining original function
+            Finally it updates our function pointer (eg., <code class="inlinecode">TrueMessageBox</code>) to point to this Trampoline.
+        </li>
+        <li><strong>3. Thread Suspension and Synchronization:</strong> When we call <code class="inlinecode">DetourUpdateThread(GetCurrentThread())</code>, Detours will suspend all the threads
+            if it doesn't do this a thread might be using the <code class="inlinecode">MessageBoxA</code> function and will crash our process. This make sure no thread is running when we overwriting the function.
+        </li>
+        <li><strong>4. Transaction Commit &amp; Overwriting:</strong> When everything is ready, <code class="inlinecode">DetourTransactionCommit()</code> will
+            <code class="inlinecode">VirtualProtect</code> to give Write privilege to the original memory. Overwrite with the JMP instruction to our hook. Restore the <code class="inlinecode">VirtualProtect</code> call the <code class="inlinecode">FlushInstructionCache()</code> notify CPU that the assembly
+            had been changed, request the CPU to delete the old cache and read again from memory. Resume all the Threads.
+        </li>
+    </ul>
     <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;Detours/detours.h&gt;</code></pre>
@@ -170,8 +188,10 @@ cd vcpkg
 
     return 0;
 }</code></pre>
-<img src="IMAGES/API_Hooking/DetourHooking1.png" alt="API Hooking">
-<img src="IMAGES/API_Hooking/DetourHooking2.png" alt="API Hooking">
+
+    <img src="IMAGES/API_Hooking/DetourHooking1.png" alt="API Hooking">
+    <img src="IMAGES/API_Hooking/DetourHooking2.png" alt="API Hooking">
+
     <p class="mynote">
         As you can see this is way simpler than the other method and it's fast and safe.
     </p>
