@@ -63,5 +63,110 @@ int main() {
 
     return 0;
 }</code></pre>
+<h1 style="text-align: center;">API HOOKING PRIMITIVE SOURCE</h1>
+    <pre class="codeblock"><code class="language-cpp">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+
+int WINAPI HookedMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType) {
+    wprintf(L"Blocked!\n");
+    wprintf(L"Original text: %s\n", lpText);
+    return IDOK;
+}
+
+void InstallHook() {
+    HMODULE hUser32 = LoadLibraryA("user32.dll");
+    FARPROC originalFuncAddress = GetProcAddress(hUser32, "MessageBoxW");
+
+    if (originalFuncAddress == NULL) {
+        printf("MessageBoxW not found!\n");
+        return;
+    }
+
+    BYTE jmpInstruction[12] = { 0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xE0 };
+
+    void* hookAddr = (void*)HookedMessageBoxW;
+    memcpy(jmpInstruction + 2, &amp;hookAddr, 8);
+
+    DWORD oldProtect;
+    VirtualProtect(originalFuncAddress, 12, PAGE_EXECUTE_READWRITE, &amp;oldProtect);
+
+    memcpy(originalFuncAddress, jmpInstruction, 12);
+
+    VirtualProtect(originalFuncAddress, 12, oldProtect, &amp;oldProtect);
+
+    printf("Hook installed successfully!\n");
+}
+
+int main() {
+    printf("--- Before Hook ---\n");
+    MessageBoxW(NULL, L"Hello, this is a normal message box!", L"Test", MB_OK);
+
+    InstallHook();
+
+    printf("\n--- After Hook ---\n");
+    MessageBoxW(NULL, L"You cannot see me!", L"Test", MB_OK);
+
+    return 0;
+}</code></pre>
+<pre class="codeblock"><code class="language-cpp">
+    #include <Windows.h>
+        #include <stdio.h>
+        void change_function(void* base, char* function_name, void* hook_address) {
+            PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
+            if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+                return;
+            }
+            PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)base + dos->e_lfanew);
+            IMAGE_DATA_DIRECTORY import_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+            PIMAGE_IMPORT_DESCRIPTOR entry_import = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)base + import_dir.VirtualAddress); //each entry_import[] is a dll
+            while (entry_import->Name != 0)
+            {
+                char* dll_name = (char*)((BYTE*)base + entry_import->Name);
+                PIMAGE_THUNK_DATA original_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->OriginalFirstThunk);
+                PIMAGE_THUNK_DATA first_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->FirstThunk);
+                if (entry_import->OriginalFirstThunk == 0)
+                {
+                    original_thunk = first_thunk;
+                }
+                while (original_thunk->u1.AddressOfData != 0)
+                {
+                    if (IMAGE_SNAP_BY_ORDINAL(original_thunk->u1.Ordinal))
+                    {
+                        original_thunk++;
+                        first_thunk++;
+                        continue;
+                    }
+                    PIMAGE_IMPORT_BY_NAME name = (PIMAGE_IMPORT_BY_NAME)((BYTE*)base + original_thunk->u1.AddressOfData);
+                    if (strcmp(name->Name, function_name) == 0)
+                    {
+                        DWORD old_protect;
+                        VirtualProtect(&(first_thunk->u1.Function), sizeof(ULONG_PTR), PAGE_READWRITE, &old_protect);
+                        first_thunk->u1.Function = (ULONG_PTR)hook_address;
+                        VirtualProtect(&(first_thunk->u1.Function), sizeof(ULONG_PTR), old_protect, &old_protect);
+                        break;
+                    }
+                    original_thunk++;
+                    first_thunk++;
+                }
+                entry_import++;
+            }
+        }
+        decltype(&MessageBoxA) TrueMessageBoxA = &MessageBoxA;
+        int WINAPI FakeMessageBoxA(HWND hwnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
+            printf("\nIAT HOOKED!");
+            TrueMessageBoxA(hwnd,"The context has been changed","HOOKED!", MB_OK);
+            return 1;
+        }
+        int main() {
+            HMODULE exe_base = NULL;
+            MessageBoxA(NULL,"This is a normal text!", "Testing", MB_OK);
+            exe_base = GetModuleHandleA(NULL);
+            change_function(exe_base,(char*)"MessageBoxA",FakeMessageBoxA);
+            MessageBoxA(NULL, "This is a normal text!", "Testing", MB_OK);
+            change_function(exe_base, (char*)"MessageBoxA", TrueMessageBoxA);
+            MessageBoxA(NULL, "This is a normal text!", "Testing", MB_OK);
+            return 0;
+        }
+</code></pre>
 </body>
 </html>

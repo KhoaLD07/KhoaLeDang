@@ -16,8 +16,8 @@
         <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
     </h1>
     <h1 style="text-align: center;">API HOOKING</h1>
-    <h1 style="font-size: 20;">TOPIC: PRIMITIVE HOOKING, DETOURS</h1>
-
+    <h1 style="font-size: 20;">TOPIC: Inline Hooking and IAT Hooking</h1>
+    <h2>I. Inline Hooking</h2>
     <p class="mynote">
         Hello everyone today I will talk about how to API hooking. API hooking is a method to modify
         interfere the function used. For example with <code class="inlinecode">MessageBoxA</code>: You can blocked it. Don't let
@@ -27,7 +27,7 @@
         (the function prologue) with a 12-byte absolute jump instruction. it might corrupt the underlying assembly
         and cause the process to crash.
     </p>
-
+    <img src="IMAGES/API_Hooking/INLINE-HOOKING.PNG" alt="inline-hooking-visualize">
     <h2>The first method: Primitive</h2>
 
     <p class="mynote">
@@ -195,9 +195,64 @@ cd vcpkg
     <p class="mynote">
         As you can see this is way simpler than the other method and it's fast and safe.
     </p>
+<h1>II. IAT Hooking</h1>
+    <p class="mynote">Before going to IAT Hooking, we need to know what is IAT. Import Address Table (IAT) is a table inside the PE format which will be utilized by Windows Loader. It stores the addresses of the API functions imported from dlls (kernel32.dll, user32.dll).
+        IAT hooking will look up for the destination function (eg., MessageBoxW) and then change it with a hook function. Different from Inline-Hooking is changing the assembly (code-base) IAT hooking
+        is changing the pointer to the function (data-based). You don't touch the opcode of the source function, we only steer the user into our hook function.
+    </p><img src="IMAGES/API_Hooking/IAT-HOOKING.PNG" alt="IAT Hooking">
+    <p class="mynote"><strong>Flow: Use GetModuleHandle to get the .exe base -> dos -> nt -> OptionHeader[IMAGE_DIRECTORY_ENTRY_IMPORT] -> entry_import -> Search for function Name -> Change the original address with our hooking address.</strong></p>
+    <pre class="codeblock"><code class="language-cpp">
+        void change_function(void* base, char* function_name, void* hook_address) {
+            PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
+            PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)base + dos->e_lfanew);
+            IMAGE_DATA_DIRECTORY import_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+            PIMAGE_IMPORT_DESCRIPTOR entry_import = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)base + import_dir.VirtualAddress); //each entry_import[] is a dll
+            </code></pre>
+        <p class="mynote">We've done this so many times so skip this.</p>
+        <p class="mynote">After getting the entry import we will keeps going until there's no more dll.</p>
+        <pre class="codeblock"><code class="language-cpp">while (entry_import->Name != 0)
+            {
+                char* dll_name = (char*)((BYTE*)base + entry_import->Name);
+                PIMAGE_THUNK_DATA original_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->OriginalFirstThunk);
+                PIMAGE_THUNK_DATA first_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->FirstThunk);
+            </code></pre>
+                <p class="mynote">When a .exe is not running (still on disk) Inside Original Thunk and First Thunk there is a RVA to it's name (for eg., MessageBoxA). When the .exe executed, Windows Loader will use the Name from Original Thunk to find the Virtual Address and overwrite FirstThunk with this Virtual Address.</p>
+                <pre class="codeblock"><code class="language-cpp">if (entry_import->OriginalFirstThunk == 0)
+                {
+                    original_thunk = first_thunk; // to make sure the original_thunk exists.
+                }
+            
+                while (original_thunk->u1.AddressOfData != 0) //when address is still avaiable
+                {
 
+                    if (IMAGE_SNAP_BY_ORDINAL(original_thunk->u1.Ordinal)) //if it got snap by ordinal we skip, we are looking for name functions.
+                    {
+                        original_thunk++;
+                        first_thunk++;
+                        continue;
+                    }</code></pre>
+                    <br>
+                    <pre class="codeblock"><code class="language-cpp">PIMAGE_IMPORT_BY_NAME name = (PIMAGE_IMPORT_BY_NAME)((BYTE*)base + original_thunk->u1.AddressOfData);
+                    if (strcmp(name->Name, function_name) == 0)
+                    {
+                        DWORD old_protect;
+                        VirtualProtect(&(first_thunk->u1.Function), sizeof(ULONG_PTR), PAGE_READWRITE, &old_protect);
+                        first_thunk->u1.Function = (ULONG_PTR)hook_address;
+                        VirtualProtect(&(first_thunk->u1.Function), sizeof(ULONG_PTR), old_protect, &old_protect);
+                        break;
+                    }</code></pre>
+                    <p class="mynote">When we found the right function. we'll change it with our hook address and it's done!</p>
+        <br>
+        <pre class="codeblock"><code class="language-cpp">decltype(&MessageBoxA) TrueMessageBoxA = &MessageBoxA;
+        int WINAPI FakeMessageBoxA(HWND hwnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType) {
+            printf("\nIAT HOOKED!");
+            TrueMessageBoxA(hwnd,"The context has been changed","HOOKED!", MB_OK);
+            return 1;
+        }</code></pre>
+        <p class="mynote">Store the MessageBoxA address and create a fake MessageBoxA function.</p>
+    </code></pre>
     <p class="mynote">
-        That's it for today see you in the next blog. For more details you can check the <a href="SourceCode/SourceAPIHookingPrimitive.html">Source Primitive</a> and <a href="SourceCode/SourceAPIHooking.html">Source Detours</a>.
+        That's it for today see you in the next blog. For more source you can check the <a href="SourceCode/SourceAPIHooking.html">Source</a>.
     </p>
 </body>
 </html>

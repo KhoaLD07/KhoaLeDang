@@ -1,0 +1,4 @@
+IAT Hooking:
+Import Address Table (IAT) is a table inside the PE format which will be loaded by Windows Loader. It stores the addresses of the API functions imported from dlls (kernel32.dll, user32.dll).
+IAT hooking will look up for the destination function (eg., MessageBoxW) and then change it with a hook function. Different from Inline-Hooking is changing the assembly (code-base) IAT hooking
+is changing the pointer to the function (data-based). You don't touch the opcode of the source function, we only steer the user into our hook function.
