@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,64 +12,117 @@
     </script>
 </head>
 <body>
-     <h1 style="text-align: left; "><a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a><h1></h1>
-     <h1 style="text-align: center;">PE HEADER</h1>
-     <h1 style="font-size: 20;">TOOL USED: CFF_EXPLORER; APP USED: notepad.exe</h1>
-     <p>Hi, this is my first blog and today we will talk about PE format. PE (PORTABLE EXECUTABLE) is a file format that provides information about a file for the WindowsKernal. Then WindowsKernal will use that information to load the file on the RAM, the information include: size of the code, offset of each sections, Entry point of the program, ...</p>
-     <img src="IMAGES/PE/PE_DOS_HEADER.png" alt="PE_DOS_HEADER">
-     <p>First part of the PE format is DOS HEADER. Its main purpose is to act as a standard identifier. Containing the "MZ" signature that marks the file as an executable. The most important field is e_lfanew, which is the offset to the NT header. It also serves the purpose of backward compatibility with the old DOS file format (when the program is loaded in MS-DOS, the default error message is “This program cannot be run in DOS mode.”).   </p>
-     <p>The second part is NT_HEADER. NT_HEADER got three smaller section (signature, File header, optional header).
-        <img src="IMAGES/PE/PE_NT_HEADER1.png" alt="signature">
-        <p style="font-size: 20;">SIGNATURE: The role of this section is to confirm that the format behind it is a valid PE format</p>
-        <img src="IMAGES/PE/PE_NT_HEADER2.png" alt="FileHeader">
-        <p style="font-size: 20;">FileHeader: 
-            <ul>
-                <li>1. Machine: Is the OS 32 bit or 64 bit.</li>
-                <li>2. NumberOfSections: Numbers of Sections in the SectionHeader.</li>
-                <li>3. TimeDateStamp: The day the file got compiled.</li>
-                <li>4. PointerToSymbolTable: offset to Symbol usually used for .obj file(value = 0 for .exe and dll)</li>
-                <li>5. SizeOfOptionalHeader: Size of Optional Header can be used to access the Section Header by adding e_lfanew and 4 (Signature) + 20(FileHeader) + sizeOfOptionalHeader.</li>
-                <li>6. Characteristics: Let Windows Kernal knows that this file is a .exe or .dll</li>
-            </ul>
-        </p>
-        <img src="IMAGES/PE/PE_NT_HEADER3.png" alt="OptionalHeader">
-        <p style="font-size: 20;">OptionalHeader</p>
-        <ul>
-            <li>1. Magic: The size of the Pointer (32 bit or 64 bit)</li>
-            <li>2. AddressOfEntryPoint: the address of the first function which will be executed. This is where the file begin to run</li>
-            <li>3. ImageBase: is the base address of the file. It serves as the reference address when the file is loaded into memory and is used to determine where sections are located in virtual memory. When the file is loaded into RAM, it is assigned a virtual address. To obtain the Relative Virtual Address (RVA) of a section, we calculate: VirtualAddress - ImageBase </li>
-            <img src="IMAGES/PE/PE_NT_HEADER4.png" alt="FileAlignment">
-            <li>4. FileAlignment, SectionAlignment: Their objective is to round up the Virtual Address and Virtual Size so its easier for WindowsKernal to read. For Example: a section has Virtual size of 0x2448F, Virtual Address: 0x912; when the value of the File Alignment is 0x200 and SectionAlignment is 0x1000; After align it will become: virtual address: 0x1000; raw size (virtual size after align): 0x24600; And then the next section .rdata will start at 0x26000</li>
-            <li>5. SizeOfImage: Total size of all the File when it got loaded on RAM.</li>
-            <li>6. SizeOfHeader: Total size of DOS HEADER, NT HEADER, SECTION TABLE got rounded up by FileAlignment</li>
-            <li>7. DataDirectories: Data Directories are a table in the OptionalHeader that describes where important data structures of the PE file are located in memory
-                Purpose:
-Data Directories tell the Windows loader where and how large key PE structures are, instead of storing those structures directly in the headers.
-<ul>Common Data Directories:
-<li>Export Table: exported functions</li>
-<li>Import Table: imported DLLs and functions</li>
-<li>Resource Table: icons, dialogs, strings</li>
-<li>Exception Table: exception handling data</li>
-<li>Security Table: digital signatures</li>
-<li>Base Relocation Table: relocation information</li>
-<li>Debug Directory: debug information</li>
-<li>TLS Table: thread local storage</li>
-<li>IAT (Import Address Table): resolved import addresses</li>
-</ul>
-<p>Inside of each IMAGE_DATA_DIRECTORIES is its virtual address and size</p>
-<img src="IMAGES/PE/PE_SECTIONHEADER1.png" alt="Section Header">
-<li>The last part is SectionHeader it contains a lot of detailed information about the file.
-</li>
-<ul>
-    <li>1. Name: Section's name.</li>
-    <li>2. VirtualSize: Size will be loaded on RAM. (it's not been aligned)</li>
-    <li>3. VirtualAddress (RVA): Relative Address of section. </li>
-    <li>... (Most of them are self explanatory)</li>
-    <li>Most important Section: .text because it contains the code.</li>
-</ul>
+    <h1 style="text-align: left;">
+        <a href="index.html" style="text-decoration: none; color: grey;">KhoaLeDang's Blog</a>
+    </h1>
+    <h1 style="text-align: center;">PE HEADER</h1>
+    <h1 style="font-size: 20px;">TOOL USED: CFF_EXPLORER; APP USED: notepad.exe</h1>
 
-        </ul>
-    <p>-> Thats all for today see you in the next Blog.</p>
+    <p>Hi, this is my first blog and today we will talk about PE format. PE (PORTABLE EXECUTABLE) is a file format that provides information about a file for the WindowsKernal. Then WindowsKernal will use that information to load the file on the RAM, the information include: size of the code, offset of each sections, Entry point of the program, ...</p>
+
+    <h2>DOS HEADER</h2>
+    <img src="IMAGES/PE/PE_DOS_HEADER.png" alt="PE_DOS_HEADER">
+    <p>First part of the PE format is DOS HEADER. Its main purpose is to act as a standard identifier. Containing the "MZ" signature that marks the file as an executable. The most important field is e_lfanew, which is the offset to the NT header. It also serves the purpose of backward compatibility with the old DOS file format (when the program is loaded in MS-DOS, the default error message is "This program cannot be run in DOS mode.").</p>
+
+    <h2>NT HEADER</h2>
+    <p>The second part is NT_HEADER. NT_HEADER got three smaller section (signature, File header, optional header).</p>
+
+    <h3>Signature</h3>
+    <img src="IMAGES/PE/PE_NT_HEADER1.png" alt="signature">
+    <p style="font-size: 20px;">SIGNATURE: The role of this section is to confirm that the format behind it is a valid PE format</p>
+
+    <h3>File Header</h3>
+    <img src="IMAGES/PE/PE_NT_HEADER2.png" alt="FileHeader">
+    <p style="font-size: 20px;">FileHeader:</p>
+    <ul>
+        <li>1. Machine: Is the OS 32 bit or 64 bit.</li>
+        <li>2. NumberOfSections: Numbers of Sections in the SectionHeader.</li>
+        <li>3. TimeDateStamp: The day the file got compiled.</li>
+        <li>4. PointerToSymbolTable: offset to Symbol usually used for .obj file (value = 0 for .exe and dll)</li>
+        <li>5. SizeOfOptionalHeader: Size of Optional Header can be used to access the Section Header by adding e_lfanew and 4 (Signature) + 20 (FileHeader) + sizeOfOptionalHeader.</li>
+        <li>6. Characteristics: Let Windows Kernal knows that this file is a .exe or .dll</li>
+    </ul>
+
+    <h3>Optional Header</h3>
+    <img src="IMAGES/PE/PE_NT_HEADER3.png" alt="OptionalHeader">
+    <p style="font-size: 20px;">OptionalHeader</p>
+    <ul>
+        <li>1. Magic: The size of the Pointer (32 bit or 64 bit)</li>
+        <li>2. AddressOfEntryPoint: the address of the first function which will be executed. This is where the file begin to run</li>
+        <li>3. ImageBase: is the base address of the file. It serves as the reference address when the file is loaded into memory and is used to determine where sections are located in virtual memory. When the file is loaded into RAM, it is assigned a virtual address. To obtain the Relative Virtual Address (RVA) of a section, we calculate: VirtualAddress - ImageBase</li>
+    </ul>
+
+    <img src="IMAGES/PE/PE_NT_HEADER4.png" alt="FileAlignment">
+    <ul>
+        <li>4. FileAlignment, SectionAlignment: Their objective is to round up the Virtual Address and Virtual Size so its easier for WindowsKernal to read. For Example: a section has Virtual size of 0x2448F, Virtual Address: 0x912; when the value of the File Alignment is 0x200 and SectionAlignment is 0x1000; After align it will become: virtual address: 0x1000; raw size (virtual size after align): 0x24600; And then the next section .rdata will start at 0x26000</li>
+        <li>5. SizeOfImage: Total size of all the File when it got loaded on RAM.</li>
+        <li>6. SizeOfHeader: Total size of DOS HEADER, NT HEADER, SECTION TABLE got rounded up by FileAlignment</li>
+        <li>7. DataDirectories: Data Directories are a table in the OptionalHeader that describes where important data structures of the PE file are located in memory</li>
+    </ul>
+
+    <p class="mynote">
+        <strong>Purpose:</strong> Data Directories tell the Windows loader where and how large key PE structures are, instead of storing those structures directly in the headers.
     </p>
+
+    <p class="mynote"><strong>Common Data Directories:</strong></p>
+    <ul>
+        <li>Export Table: exported functions</li>
+        <li>Import Table: imported DLLs and functions</li>
+        <li>Resource Table: icons, dialogs, strings</li>
+        <li>Exception Table: exception handling data</li>
+        <li>Security Table: digital signatures</li>
+        <li>Base Relocation Table: relocation information</li>
+        <li>Debug Directory: debug information</li>
+        <li>TLS Table: thread local storage</li>
+        <li>IAT (Import Address Table): resolved import addresses</li>
+    </ul>
+
+    <p class="mynote">We'll be using Data Directories a lot in the futures. I'll dig deep in some importants DataDirectories.</p>
+
+    <p class="mynote">IMAGE_DIRECTORY_ENTRY_IMPORT: This is where all the information about DLLs, Functions is located. Each entry_import is a dll. Inside entry_import there are thunks which is the functions information.</p>
+
+    <pre class="codeblock"><code class="language-cpp">PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)base;
+PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)base + dos->e_lfanew);
+IMAGE_DATA_DIRECTORY import_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+PIMAGE_IMPORT_DESCRIPTOR entry_import = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)base + import_dir.VirtualAddress); //each entry_import[] is a dll</code></pre>
+
+    <p class="mynote">
+        This is how you get to entry_import.
+        The fields this struct contains:<br>
+        pub <strong>original_first_thunk: RVA,</strong><br>
+        pub time_date_stamp: u32,<br>
+        pub forwarder_chain: u32,<br>
+        pub name: RVA,<br>
+        <strong>pub first_thunk: RVA,</strong><br>
+        We need to focus on original_first_thunk and the first_thunk field.
+    </p>
+
+    <pre class="codeblock"><code class="language-cpp">PIMAGE_THUNK_DATA original_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->OriginalFirstThunk);
+PIMAGE_THUNK_DATA first_thunk = (PIMAGE_THUNK_DATA)((BYTE*)base + entry_import->FirstThunk);</code></pre>
+
+    <p class="mynote">This is how you get to the thunk.</p>
+    <p class="mynote">Each thunk represent a function. Here's the fields inside the struct.</p>
+
+    <pre class="codeblock"><code class="language-cpp">typedef struct _IMAGE_THUNK_DATA {
+    union {
+        uint32_t* Function;             // address of imported function
+        uint32_t  Ordinal;              // ordinal value of function
+        PIMAGE_IMPORT_BY_NAME AddressOfData;        // RVA of imported name
+        DWORD ForwarderStringl              // RVA to forwarder string
+    } u1;
+} IMAGE_THUNK_DATA, *PIMAGE_THUNK_DATA;</code></pre>
+
+    <h2>Section Header</h2>
+    <img src="IMAGES/PE/PE_SECTIONHEADER1.png" alt="Section Header">
+    <p>The last part is SectionHeader. It contains a lot of detailed information about the file.</p>
+    <ul>
+        <li>1. Name: Section's name.</li>
+        <li>2. VirtualSize: Size will be loaded on RAM. (it's not been aligned)</li>
+        <li>3. VirtualAddress (RVA): Relative Address of section.</li>
+        <li>... (Most of them are self explanatory)</li>
+        <li>Most important Section: .text because it contains the code.</li>
+    </ul>
+
+    <p>-> Thats all for today see you in the next Blog.</p>
 </body>
 </html>

@@ -40,9 +40,10 @@
         and have access to the LAN folder. <strong>Local Service</strong> will still have access but it can't access to the LAN folder because of the anonymous credentials
         access denied. Both <strong>Network service</strong> and <strong>Local service</strong> don't have the privileges to Write/Edit/Delete inside the <code class="inlinecode">C:\Windows</code> folder.
     </p>
-
+    <p class="mynote">
+        To create a service: <strong>OpenSCManager()</strong> // Get a <strong>service_manager_handle</strong> -> <strong>CreateServiceW(service_manager_handle)</strong>.
+    </p>
     <p class="mynote"><strong>This is my code to Create a service:</strong></p>
-
     <pre class="codeblock"><code class="language-cpp">#include &lt;Windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;WtsApi32.h&gt;
@@ -55,17 +56,11 @@ LPWSTR service_name = (LPWSTR)L"notepad local service";
 LPCWSTR service_path = L"C:\\MyService\\notepadService.exe";
 LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
 
-    <p class="mynote">
-        To create a service you will need <code class="inlinecode">SERVICE_STATUS</code> and <code class="inlinecode">SERVICE_STATUS_HANDLE</code> to create. <code class="inlinecode">WtsApi32</code> for the messagebox, <code class="inlinecode">Sddl.h</code> for the SDDL string convert,
-        and then some name and path.
-    </p>
-
     <pre class="codeblock"><code class="language-cpp">void show_message() {
     DWORD response;
     LPCWSTR title = L"Service Notification";
     LPCWSTR message = L"Hello! Your service is running successfully.";
     DWORD sessionId = WTSGetActiveConsoleSessionId();
-
     WTSSendMessageW(
         WTS_CURRENT_SERVER_HANDLE,
         sessionId,
@@ -85,21 +80,19 @@ LPCWSTR service_dependencies = (LPCWSTR)L"king_service";</code></pre>
         I created a messagebox for the service we need to use this <code class="inlinecode">WTSSendMessageW</code> because This will use our session id to create one.
     </p>
 
-    <pre class="codeblock"><code class="language-cpp">void WINAPI service_ctrl_handler(DWORD control_code) {
+    <pre class="codeblock"><code class="language-cpp">
+    void WINAPI service_ctrl_handler(DWORD control_code) {
     if (control_code == SERVICE_CONTROL_STOP)
     {
         gservice_stats.dwCurrentState = SERVICE_STOPPED;
         SetServiceStatus(gservice_stats_handle, &amp;gservice_stats);
     }
 }</code></pre>
-
     <p class="mynote">
-        First we need a service control handler function this function will help <code class="inlinecode">services.msc</code> can stop your service. Don't need to use <code class="inlinecode">taskkill</code>
+        This is optional, we use this service control handler function so <code class="inlinecode">services.msc</code> can stop your service. Don't need to use <code class="inlinecode">taskkill</code>
     </p>
-
     <pre class="codeblock"><code class="language-cpp">void WINAPI service_main(DWORD agrc, LPTSTR* agrv) {
     gservice_stats_handle = RegisterServiceCtrlHandlerW(service_name, service_ctrl_handler);
-
     gservice_stats.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     gservice_stats.dwCurrentState = SERVICE_RUNNING;
     gservice_stats.dwControlsAccepted = SERVICE_ACCEPT_STOP;
